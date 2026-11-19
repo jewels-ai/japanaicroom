@@ -214,14 +214,17 @@
     xrweb="allowedDevices: any">
 
     <!-- =================================================================== -->
-    <!-- PRELOADED 3D ASSETS (Place your .glb files in these folders)        -->
+    <!-- PRELOADED 3D ASSETS (Matching your exact assets/models/japan/ files)-->
     <!-- =================================================================== -->
-    <a-assets timeout="15000">
+    <a-assets timeout="20000">
       <!-- Japan Models -->
       <a-asset-item id="model-torii-gate" src="./assets/models/japan/torii-gate.glb"></a-asset-item>
       <a-asset-item id="model-toro-lantern" src="./assets/models/japan/toro-stone-lantern.glb"></a-asset-item>
-      <a-asset-item id="model-sakura-tree" src="./assets/models/japan/sakura-tree.glb"></a-asset-item>
-      <a-asset-item id="model-shishi-odoshi" src="./assets/models/japan/shishi-odoshi.glb"></a-asset-item>
+      <a-asset-item id="model-maple-tree" src="./assets/models/japan/japanese-maple-tree.glb"></a-asset-item>
+      <a-asset-item id="model-ema-board" src="./assets/models/japan/ema-prayer-board.glb"></a-asset-item>
+      <a-asset-item id="model-izakaya" src="./assets/models/japan/izakaya-ramen-facade.glb"></a-asset-item>
+      <a-asset-item id="model-matcha" src="./assets/models/japan/matcha-tea-ceremony.glb"></a-asset-item>
+      <a-asset-item id="model-japan-garden" src="./assets/models/japan/spatial-japan-garden.glb"></a-asset-item>
 
       <!-- UK Models -->
       <a-asset-item id="model-uk-1" src="./assets/models/uk/phone_booth.glb"></a-asset-item>
@@ -251,14 +254,26 @@
 
       <!-- THEME 1: JAPAN (Active by default) -->
       <a-entity id="theme-japan" visible="true">
-        <!-- Center-Back Torii Gate -->
-        <a-gltf-model src="#model-torii-gate" position="0 0 -3.2" scale="0.7 0.7 0.7"></a-gltf-model>
-        <!-- Left Sakura Tree -->
-        <a-gltf-model src="#model-sakura-tree" position="-2.2 0 -2.8" scale="0.75 0.75 0.75"></a-gltf-model>
-        <!-- Right Stone Lantern -->
-        <a-gltf-model src="#model-toro-lantern" position="1.8 0 -2.4" rotation="0 -25 0" scale="0.8 0.8 0.8"></a-gltf-model>
-        <!-- Foreground Shishi-odoshi -->
-        <a-gltf-model src="#model-shishi-odoshi" position="-1.1 0 -1.5" rotation="0 30 0" scale="1 1 1"></a-gltf-model>
+        <!-- Center-Back: Torii Gate -->
+        <a-gltf-model src="#model-torii-gate" position="0 0 -3.4" scale="0.65 0.65 0.65"></a-gltf-model>
+
+        <!-- Back-Left: Japanese Maple Tree -->
+        <a-gltf-model src="#model-maple-tree" position="-2.4 0 -2.8" rotation="0 20 0" scale="0.7 0.7 0.7"></a-gltf-model>
+
+        <!-- Back-Right: Ema Prayer Board -->
+        <a-gltf-model src="#model-ema-board" position="2.2 0 -2.6" rotation="0 -35 0" scale="0.75 0.75 0.75"></a-gltf-model>
+
+        <!-- Mid-Right: Stone Lantern -->
+        <a-gltf-model src="#model-toro-lantern" position="1.5 0 -1.5" rotation="0 -25 0" scale="0.75 0.75 0.75"></a-gltf-model>
+
+        <!-- Left Side: Izakaya / Ramen Shop Facade -->
+        <a-gltf-model src="#model-izakaya" position="-2.8 0 0.2" rotation="0 75 0" scale="0.65 0.65 0.65"></a-gltf-model>
+
+        <!-- Foreground Center-Left: Matcha Tea Ceremony -->
+        <a-gltf-model src="#model-matcha" position="-0.7 0 -1.2" rotation="0 20 0" scale="1.2 1.2 1.2"></a-gltf-model>
+
+        <!-- Behind User (Turn 180°): Spatial Japan Garden -->
+        <a-gltf-model src="#model-japan-garden" position="0 0 3.0" rotation="0 180 0" scale="0.45 0.45 0.45"></a-gltf-model>
       </a-entity>
 
       <!-- THEME 2: UK -->
