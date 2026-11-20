@@ -5,343 +5,459 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>AIROOM - Multi-Theme WebAR</title>
 
-  <!-- FIX 1: Load ONLY 8frame (8th Wall's A-Frame build). Loading aframe.io AND 8frame
-       registers A-Frame twice and breaks camera/tracking updates. -->
-  <script src="https://cdn.8thwall.com/web/aframe/8frame-1.5.0.min.js"></script>
-  <script src="https://cdn.8thwall.com/web/xrextras/xrextras.js"></script>
-
-  <!-- Self-hosted 8th Wall engine with SLAM chunk -->
-  <script async src="./xr.js" data-preload-chunks="slam"></script>
-
   <style>
     body { margin: 0; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; background: #0f172a; }
+    .poweredby-img, #poweredByLogo, #loadingContainer { display: none !important; }
 
-    #custom-loader {
-      position: fixed; inset: 0; background: #0f172a; color: #fff;
+    #overlay { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+    #overlay button { pointer-events: auto; }
+
+    #start-screen {
+      position: absolute; inset: 0; background: #0f172a; color: #fff; z-index: 20;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      z-index: 9999; transition: opacity 0.4s ease;
+      gap: 14px; text-align: center; padding: 24px; transition: opacity 0.4s ease;
+      pointer-events: auto;
     }
     .spinner {
       width: 46px; height: 46px; border: 4px solid rgba(255,255,255,0.15);
       border-top-color: #10b981; border-radius: 50%; animation: spin 0.9s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .poweredby-img, #poweredByLogo, #loadingContainer { display: none !important; }
+    #start-btn {
+      display: none; border: none; border-radius: 30px; padding: 14px 34px;
+      font-size: 16px; font-weight: 600; background: #10b981; color: #fff; cursor: pointer;
+    }
+    #start-msg { font-size: 14px; opacity: 0.8; max-width: 320px; }
 
     #hint-banner {
-      position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
-      background: rgba(15,23,42,0.85); color: #fff; padding: 12px 22px;
-      border-radius: 30px; font-size: 14px; font-weight: 500; z-index: 10;
-      backdrop-filter: blur(8px); pointer-events: none; text-align: center;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3); white-space: nowrap;
-      transition: background 0.25s ease;
+      position: absolute; top: 24px; left: 50%; transform: translateX(-50%);
+      background: rgba(15,23,42,0.85); color: #fff; padding: 12px 22px; border-radius: 30px;
+      font-size: 14px; font-weight: 500; white-space: nowrap; display: none;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: background 0.25s ease;
     }
     #hint-banner.ready { background: rgba(16,185,129,0.9); }
 
     #theme-dock {
-      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
       display: none; gap: 8px; background: rgba(15,23,42,0.88); padding: 8px;
-      border-radius: 40px; z-index: 10; backdrop-filter: blur(10px);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+      border-radius: 40px; pointer-events: auto; box-shadow: 0 8px 25px rgba(0,0,0,0.4);
     }
     .theme-btn {
-      border: none; padding: 10px 16px; border-radius: 30px; font-size: 14px;
-      font-weight: 600; cursor: pointer; color: #cbd5e1; background: transparent;
-      transition: all 0.25s ease; white-space: nowrap;
+      border: none; padding: 10px 16px; border-radius: 30px; font-size: 14px; font-weight: 600;
+      cursor: pointer; color: #cbd5e1; background: transparent; white-space: nowrap;
     }
-    .theme-btn.active { background: #10b981; color: #fff; box-shadow: 0 2px 10px rgba(16,185,129,0.4); }
+    .theme-btn.active { background: #10b981; color: #fff; }
 
-    .ar-ctrl-btn {
-      position: fixed; right: 16px; z-index: 10; background: rgba(15,23,42,0.78);
-      color: #fff; border: 1px solid rgba(255,255,255,0.22); border-radius: 50%;
-      width: 44px; height: 44px; font-size: 18px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px);
+    #reposition-btn {
+      position: absolute; right: 16px; top: 24px; display: none; width: 44px; height: 44px;
+      border-radius: 50%; border: 1px solid rgba(255,255,255,0.22); background: rgba(15,23,42,0.78);
+      color: #fff; font-size: 16px; cursor: pointer; align-items: center; justify-content: center;
     }
-    #reposition-btn { top: 24px; display: none; font-size: 16px; }
+
+    #debug-hud {
+      position: absolute; left: 10px; bottom: 90px; max-width: 80vw; display: none;
+      font: 11px/1.3 ui-monospace, monospace; color: #fff; background: rgba(0,0,0,0.55);
+      padding: 6px 8px; border-radius: 6px;
+    }
   </style>
-
-  <script>
-    AFRAME.registerComponent('room-anchor-manager', {
-      init: function () {
-        this.scene = this.el;
-        this.cameraEl = document.querySelector('a-camera');
-        this.roomRoot = document.getElementById('room-origin');
-        this.reticle = document.getElementById('placement-reticle');
-        this.hintBanner = document.getElementById('hint-banner');
-        this.themeDock = document.getElementById('theme-dock');
-        this.repositionBtn = document.getElementById('reposition-btn');
-        this.customLoader = document.getElementById('custom-loader');
-
-        this.isAnchored = false;
-        this.realityReady = false;
-        this.hasValidFloorHit = false;
-        this.stableFrames = 0;          // frames with a steady floor hit
-        this.lastHitY = null;
-        this.hitPending = false;
-
-        // Smoothed floor point shown by the reticle
-        this.floorPoint = new THREE.Vector3();
-        this.hasFloorPoint = false;
-
-        // Fallback maths plane (used only if the engine has no surface estimate yet)
-        this.raycaster = new THREE.Raycaster();
-        this.centerNDC = new THREE.Vector2(0, 0);
-        this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-        this.tmpHit = new THREE.Vector3();
-        this.camPos = new THREE.Vector3();
-        this.camDir = new THREE.Vector3();
-
-        this.scene.addEventListener('realityready', () => {
-          this.realityReady = true;
-          if (this.customLoader) {
-            this.customLoader.style.opacity = '0';
-            setTimeout(() => this.customLoader.remove(), 400);
-          }
-        });
-
-        // Tap to place. The room is placed ONCE in world space and never touched again,
-        // so it stays fixed while the camera moves.
-        const placeRoom = (e) => {
-          if (this.isAnchored || !this.hasValidFloorHit || this.stableFrames < 20) return;
-          if (e.target.closest('button') || e.target.closest('#theme-dock')) return;
-
-          const cameraObj = this.cameraEl.getObject3D('camera');
-          if (!cameraObj) return;
-
-          this.roomRoot.object3D.position.copy(this.floorPoint);
-
-          // Face the gate toward the user (flatten direction to the horizontal plane)
-          cameraObj.getWorldDirection(this.camDir);
-          this.camDir.y = 0;
-          if (this.camDir.lengthSq() < 0.01) {
-            // Looking almost straight down: use camera "up" vector instead
-            cameraObj.getWorldDirection(this.camDir);
-            this.camDir.set(0, 0, -1).applyQuaternion(cameraObj.getWorldQuaternion(new THREE.Quaternion()));
-            this.camDir.y = 0;
-          }
-          this.camDir.normalize();
-          const yaw = Math.atan2(-this.camDir.x, -this.camDir.z);
-          this.roomRoot.object3D.rotation.set(0, yaw, 0);
-
-          this.roomRoot.setAttribute('visible', 'true');
-          this.reticle.setAttribute('visible', 'false');
-          this.isAnchored = true;
-
-          this.hintBanner.style.display = 'none';
-          this.themeDock.style.display = 'flex';
-          this.repositionBtn.style.display = 'flex';
-        };
-        window.addEventListener('click', placeRoom);
-
-        this.repositionBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.isAnchored = false;
-          this.hasValidFloorHit = false;
-          this.hasFloorPoint = false;
-          this.stableFrames = 0;
-          this.roomRoot.setAttribute('visible', 'false');
-          this.themeDock.style.display = 'none';
-          this.repositionBtn.style.display = 'none';
-          this.hintBanner.style.display = 'block';
-          this.hintBanner.textContent = 'Point your phone down at the floor';
-          this.hintBanner.classList.remove('ready');
-        });
-      },
-
-      // Ask the 8th Wall engine for a real surface under the screen centre.
-      queryFloor: function (camY) {
-        if (this.hitPending) return;
-        const XR = window.XR8;
-        if (!XR || !XR.XrController || !XR.XrController.hitTest) return;
-        this.hitPending = true;
-        try {
-          const results = XR.XrController.hitTest(0.5, 0.5, ['DETECTED_SURFACE', 'ESTIMATED_SURFACE']);
-          const hits = Array.isArray(results) ? results : [];
-          this.hitPending = false;
-
-          // Accept only floor-like hits: roughly 0.8m - 2.2m below the camera
-          const floorHit = hits.find(h => h.position && (camY - h.position.y) > 0.8 && (camY - h.position.y) < 2.2);
-          if (floorHit) {
-            this.applyFloorPoint(floorHit.position.x, floorHit.position.y, floorHit.position.z);
-            return true;
-          }
-        } catch (err) {
-          this.hitPending = false;
-        }
-        return false;
-      },
-
-      applyFloorPoint: function (x, y, z) {
-        if (!this.hasFloorPoint) {
-          this.floorPoint.set(x, y, z);
-          this.hasFloorPoint = true;
-        } else {
-          // Smooth to remove jitter
-          this.floorPoint.lerp(this.tmpHit.set(x, y, z), 0.25);
-        }
-        // Track steadiness: floor height should not jump around
-        if (this.lastHitY !== null && Math.abs(this.lastHitY - y) < 0.05) this.stableFrames++;
-        else this.stableFrames = 0;
-        this.lastHitY = y;
-      },
-
-      tick: function () {
-        if (this.isAnchored || !this.realityReady) return;
-
-        const cameraObj = this.cameraEl.getObject3D('camera');
-        if (!cameraObj) return;
-        cameraObj.getWorldPosition(this.camPos);
-
-        let found = this.queryFloor(this.camPos.y);
-
-        // Fallback: intersect with the y=0 plane (assumes phone started ~1.6m high)
-        if (!found) {
-          this.raycaster.setFromCamera(this.centerNDC, cameraObj);
-          const hit = this.raycaster.ray.intersectPlane(this.groundPlane, new THREE.Vector3());
-          if (hit) {
-            this.applyFloorPoint(hit.x, 0, hit.z);
-            found = true;
-          }
-        }
-
-        if (found) {
-          const dist = this.camPos.distanceTo(this.floorPoint);
-          if (dist >= 0.8 && dist <= 8.0) {
-            this.reticle.object3D.position.copy(this.floorPoint);
-            this.reticle.object3D.position.y += 0.01;
-            this.reticle.setAttribute('visible', 'true');
-
-            if (!this.hasValidFloorHit) {
-              this.hasValidFloorHit = true;
-            }
-            if (this.stableFrames >= 20) {
-              this.hintBanner.textContent = 'Floor found! Tap to place';
-              this.hintBanner.classList.add('ready');
-            } else {
-              this.hintBanner.textContent = 'Scanning floor... move phone slowly';
-              this.hintBanner.classList.remove('ready');
-            }
-            return;
-          }
-        }
-
-        if (this.hasValidFloorHit) {
-          this.hasValidFloorHit = false;
-          this.stableFrames = 0;
-          this.reticle.setAttribute('visible', 'false');
-          this.hintBanner.textContent = 'Point your phone down at the floor';
-          this.hintBanner.classList.remove('ready');
-        }
-      }
-    });
-
-    function switchTheme(themeName, btnElement) {
-      ['japan', 'uk', 'korea'].forEach(t => {
-        const c = document.getElementById('theme-' + t);
-        if (c) c.setAttribute('visible', t === themeName);
-      });
-      document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
-      btnElement.classList.add('active');
-    }
-  </script>
 </head>
 
 <body>
-  <div id="custom-loader">
-    <div class="spinner"></div>
-    <p style="margin-top:16px;font-size:14px;font-weight:500;letter-spacing:.5px;">Initializing AR Room...</p>
+  <div id="overlay">
+    <div id="start-screen">
+      <div class="spinner" id="spinner"></div>
+      <button id="start-btn">Start AR</button>
+      <div id="start-msg">Preparing AR...</div>
+    </div>
+    <div id="hint-banner"></div>
+    <button id="reposition-btn" title="Move room">📍</button>
+    <div id="debug-hud"></div>
+    <div id="theme-dock">
+      <button class="theme-btn active" onclick="switchTheme('japan', this)">🇯🇵 Japan</button>
+      <button class="theme-btn" onclick="switchTheme('uk', this)">🇬🇧 UK</button>
+      <button class="theme-btn" onclick="switchTheme('korea', this)">🇰🇷 Korea</button>
+    </div>
   </div>
 
-  <div id="hint-banner">Point your phone down at the floor</div>
-  <button id="reposition-btn" class="ar-ctrl-btn" title="Move Room">📍</button>
+  <script>
+    /* ====================================================================
+       AIROOM: one file, two AR engines
+       - Android Chrome (ARCore) -> native WebXR with real plane hit-test
+       - iPhone / everything else -> 8th Wall SLAM (needs ./xr.js + xr-slam.js)
+       Add ?engine=8thwall to the URL to force the 8th Wall path.
+       ==================================================================== */
 
-  <div id="theme-dock">
-    <button class="theme-btn active" onclick="switchTheme('japan', this)">🇯🇵 Japan</button>
-    <button class="theme-btn" onclick="switchTheme('uk', this)">🇬🇧 UK</button>
-    <button class="theme-btn" onclick="switchTheme('korea', this)">🇰🇷 Korea</button>
-  </div>
+    const $ = (id) => document.getElementById(id);
 
-  <!-- FIX: shadows enabled; colorManagement removed (deprecated in A-Frame 1.5) -->
-  <a-scene
-    room-anchor-manager
-    xrextras-almost-there
-    xrextras-runtime-error
-    shadow="type: pcfsoft"
-    renderer="physicallyCorrectLights: true; toneMapping: ACESFilmic"
-    xrweb="allowedDevices: any; scale: responsive">
+    function loadScript(src, attrs) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        Object.entries(attrs || {}).forEach(([k, v]) => s.setAttribute(k, v));
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Could not load ' + src));
+        document.head.appendChild(s);
+      });
+    }
 
-    <a-assets timeout="20000">
-      <!-- Japan -->
-      <a-asset-item id="model-torii-gate" src="./assets/models/japan/torii-gate.glb"></a-asset-item>
-      <a-asset-item id="model-toro-lantern" src="./assets/models/japan/toro-stone-lantern.glb"></a-asset-item>
-      <a-asset-item id="model-maple-tree" src="./assets/models/japan/japanese-maple-tree.glb"></a-asset-item>
-      <a-asset-item id="model-ema-board" src="./assets/models/japan/ema-prayer-board.glb"></a-asset-item>
-      <a-asset-item id="model-izakaya" src="./assets/models/japan/izakaya-ramen-facade.glb"></a-asset-item>
-      <a-asset-item id="model-matcha" src="./assets/models/japan/matcha-tea-ceremony.glb"></a-asset-item>
-      <a-asset-item id="model-japan-garden" src="./assets/models/japan/spatial-japan-garden.glb"></a-asset-item>
-      <!-- UK -->
-      <a-asset-item id="model-uk-1" src="./assets/models/uk/phone_booth.glb"></a-asset-item>
-      <a-asset-item id="model-uk-2" src="./assets/models/uk/big_ben.glb"></a-asset-item>
-      <a-asset-item id="model-uk-3" src="./assets/models/uk/lamp_post.glb"></a-asset-item>
-      <!-- Korea -->
-      <a-asset-item id="model-korea-1" src="./assets/models/korea/hanok_gate.glb"></a-asset-item>
-      <a-asset-item id="model-korea-2" src="./assets/models/korea/lantern.glb"></a-asset-item>
-      <a-asset-item id="model-korea-3" src="./assets/models/korea/jangdokdae.glb"></a-asset-item>
-    </a-assets>
+    function switchTheme(name, btn) {
+      ['japan', 'uk', 'korea'].forEach((t) => {
+        const c = document.getElementById('theme-' + t);
+        if (c) c.setAttribute('visible', t === name);
+      });
+      document.querySelectorAll('.theme-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
 
-    <!-- FIX: touch/mouse look and WASD fight with the AR tracker; disable them -->
-    <a-camera position="0 1.6 0" look-controls="enabled: false" wasd-controls="enabled: false"></a-camera>
+    function showError(msg) {
+      $('spinner').style.display = 'none';
+      $('start-btn').style.display = 'none';
+      $('start-msg').textContent = msg;
+      $('start-screen').style.display = 'flex';
+      $('start-screen').style.opacity = '1';
+    }
 
-    <!-- Floor reticle -->
-    <a-entity id="placement-reticle" visible="false">
-      <a-ring rotation="-90 0 0" radius-inner="0.22" radius-outer="0.28" color="#10b981" material="shader: flat; opacity: 0.9"></a-ring>
-      <a-circle rotation="-90 0 0" radius="0.06" color="#ffffff" material="shader: flat; opacity: 0.9"></a-circle>
-    </a-entity>
+    /* ---------- Shared 3D content ---------- */
+    function sceneContent(isXR) {
+      return `
+      <a-assets timeout="20000">
+        <a-asset-item id="model-torii-gate" src="./assets/models/japan/torii-gate.glb"></a-asset-item>
+        <a-asset-item id="model-toro-lantern" src="./assets/models/japan/toro-stone-lantern.glb"></a-asset-item>
+        <a-asset-item id="model-maple-tree" src="./assets/models/japan/japanese-maple-tree.glb"></a-asset-item>
+        <a-asset-item id="model-ema-board" src="./assets/models/japan/ema-prayer-board.glb"></a-asset-item>
+        <a-asset-item id="model-izakaya" src="./assets/models/japan/izakaya-ramen-facade.glb"></a-asset-item>
+        <a-asset-item id="model-matcha" src="./assets/models/japan/matcha-tea-ceremony.glb"></a-asset-item>
+        <a-asset-item id="model-japan-garden" src="./assets/models/japan/spatial-japan-garden.glb"></a-asset-item>
+        <a-asset-item id="model-uk-1" src="./assets/models/uk/phone_booth.glb"></a-asset-item>
+        <a-asset-item id="model-uk-2" src="./assets/models/uk/big_ben.glb"></a-asset-item>
+        <a-asset-item id="model-uk-3" src="./assets/models/uk/lamp_post.glb"></a-asset-item>
+        <a-asset-item id="model-korea-1" src="./assets/models/korea/hanok_gate.glb"></a-asset-item>
+        <a-asset-item id="model-korea-2" src="./assets/models/korea/lantern.glb"></a-asset-item>
+        <a-asset-item id="model-korea-3" src="./assets/models/korea/jangdokdae.glb"></a-asset-item>
+      </a-assets>
 
-    <!-- Room (a sibling of the camera, NOT a child, so it never follows the camera) -->
-    <a-entity id="room-origin" visible="false">
+      <a-camera ${isXR ? '' : 'position="0 1.6 0"'} look-controls="enabled: false" wasd-controls="enabled: false"></a-camera>
 
-      <!-- Lighting lives inside the room so shadows follow the placed room -->
-      <a-light type="hemisphere" color="#ffffff" groundColor="#8899aa" intensity="0.9"></a-light>
-      <a-entity id="shadow-target" position="0 0 -1"></a-entity>
-      <a-light type="directional" position="2 6 3" intensity="1.1" target="#shadow-target"
-        castShadow="true"
-        shadowMapWidth="1024" shadowMapHeight="1024"
-        shadowCameraLeft="-6" shadowCameraRight="6"
-        shadowCameraTop="6" shadowCameraBottom="-6"
-        shadowCameraNear="0.5" shadowCameraFar="20"
-        shadowBias="-0.0005"></a-light>
-
-      <!-- Invisible floor that only shows shadows, so models look grounded on the real floor -->
-      <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 0"
-        material="shader: shadow; opacity: 0.35" shadow="receive: true"></a-plane>
-
-      <!-- THEME 1: JAPAN -->
-      <a-entity id="theme-japan" visible="true">
-        <a-gltf-model shadow="cast: true" src="#model-torii-gate" position="0 0 -4.2" scale="1.1 1.1 1.1"></a-gltf-model>
-        <a-gltf-model shadow="cast: true" src="#model-maple-tree" position="-3.0 0 -3.4" rotation="0 20 0" scale="1.15 1.15 1.15"></a-gltf-model>
-        <a-gltf-model shadow="cast: true" src="#model-ema-board" position="2.8 0 -3.0" rotation="0 -35 0" scale="1.15 1.15 1.15"></a-gltf-model>
-        <a-gltf-model shadow="cast: true" src="#model-toro-lantern" position="1.9 0 -1.8" rotation="0 -25 0" scale="1.15 1.15 1.15"></a-gltf-model>
-        <a-gltf-model shadow="cast: true" src="#model-izakaya" position="-3.5 0 0.2" rotation="0 75 0" scale="1.15 1.15 1.15"></a-gltf-model>
-        <a-gltf-model shadow="cast: true" src="#model-matcha" position="-0.8 0 -1.3" rotation="0 20 0" scale="4.2 4.2 4.2"></a-gltf-model>
-        <a-gltf-model shadow="cast: true" src="#model-japan-garden" position="0 0 3.8" rotation="0 180 0" scale="0.8 0.8 0.8"></a-gltf-model>
+      <a-entity id="placement-reticle" visible="false">
+        <a-ring rotation="-90 0 0" radius-inner="0.22" radius-outer="0.28" color="#10b981" material="shader: flat; opacity: 0.9"></a-ring>
+        <a-circle rotation="-90 0 0" radius="0.06" color="#ffffff" material="shader: flat; opacity: 0.9"></a-circle>
       </a-entity>
 
-      <!-- THEME 2: UK -->
-      <a-entity id="theme-uk" visible="false">
-        <a-gltf-model shadow="cast: true" src="#model-uk-1" position="-1.8 0 -2.8" rotation="0 20 0"></a-gltf-model>
-        <a-gltf-model shadow="cast: true" src="#model-uk-2" position="0 0 -3.5"></a-gltf-model>
-        <a-gltf-model shadow="cast: true" src="#model-uk-3" position="1.9 0 -2.6" rotation="0 -20 0"></a-gltf-model>
-      </a-entity>
+      <!-- Room is a sibling of the camera and is positioned only once, so it stays fixed in the world -->
+      <a-entity id="room-origin" visible="false">
+        <a-light type="hemisphere" color="#ffffff" groundColor="#8899aa" intensity="0.9"></a-light>
+        <a-entity id="shadow-target" position="0 0 -1"></a-entity>
+        <a-light type="directional" position="2 6 3" intensity="1.1" target="#shadow-target"
+          castShadow="true" shadowMapWidth="1024" shadowMapHeight="1024"
+          shadowCameraLeft="-6" shadowCameraRight="6" shadowCameraTop="6" shadowCameraBottom="-6"
+          shadowCameraNear="0.5" shadowCameraFar="20" shadowBias="-0.0005"></a-light>
 
-      <!-- THEME 3: KOREA -->
-      <a-entity id="theme-korea" visible="false">
-        <a-gltf-model shadow="cast: true" src="#model-korea-1" position="0 0 -3.2"></a-gltf-model>
-        <a-gltf-model shadow="cast: true" src="#model-korea-2" position="-1.8 0 -2.4" rotation="0 25 0"></a-gltf-model>
-        <a-gltf-model shadow="cast: true" src="#model-korea-3" position="1.8 0 -2.4" rotation="0 -25 0"></a-gltf-model>
-      </a-entity>
+        <a-plane rotation="-90 0 0" width="14" height="14" material="shader: shadow; opacity: 0.35" shadow="receive: true"></a-plane>
 
-    </a-entity>
-  </a-scene>
+        <a-entity id="theme-japan" visible="true">
+          <a-gltf-model shadow="cast: true" src="#model-torii-gate" position="0 0 -4.2" scale="1.1 1.1 1.1"></a-gltf-model>
+          <a-gltf-model shadow="cast: true" src="#model-maple-tree" position="-3.0 0 -3.4" rotation="0 20 0" scale="1.15 1.15 1.15"></a-gltf-model>
+          <a-gltf-model shadow="cast: true" src="#model-ema-board" position="2.8 0 -3.0" rotation="0 -35 0" scale="1.15 1.15 1.15"></a-gltf-model>
+          <a-gltf-model shadow="cast: true" src="#model-toro-lantern" position="1.9 0 -1.8" rotation="0 -25 0" scale="1.15 1.15 1.15"></a-gltf-model>
+          <a-gltf-model shadow="cast: true" src="#model-izakaya" position="-3.5 0 0.2" rotation="0 75 0" scale="1.15 1.15 1.15"></a-gltf-model>
+          <a-gltf-model shadow="cast: true" src="#model-matcha" position="-0.8 0 -1.3" rotation="0 20 0" scale="4.2 4.2 4.2"></a-gltf-model>
+          <a-gltf-model shadow="cast: true" src="#model-japan-garden" position="0 0 3.8" rotation="0 180 0" scale="0.8 0.8 0.8"></a-gltf-model>
+        </a-entity>
+
+        <a-entity id="theme-uk" visible="false">
+          <a-gltf-model shadow="cast: true" src="#model-uk-1" position="-1.8 0 -2.8" rotation="0 20 0"></a-gltf-model>
+          <a-gltf-model shadow="cast: true" src="#model-uk-2" position="0 0 -3.5"></a-gltf-model>
+          <a-gltf-model shadow="cast: true" src="#model-uk-3" position="1.9 0 -2.6" rotation="0 -20 0"></a-gltf-model>
+        </a-entity>
+
+        <a-entity id="theme-korea" visible="false">
+          <a-gltf-model shadow="cast: true" src="#model-korea-1" position="0 0 -3.2"></a-gltf-model>
+          <a-gltf-model shadow="cast: true" src="#model-korea-2" position="-1.8 0 -2.4" rotation="0 25 0"></a-gltf-model>
+          <a-gltf-model shadow="cast: true" src="#model-korea-3" position="1.8 0 -2.4" rotation="0 -25 0"></a-gltf-model>
+        </a-entity>
+      </a-entity>`;
+    }
+
+    /* Shared placement helper: yaw so the gate (room -Z) faces away from the user */
+    function placeRoomAt(roomEl, worldPos, camera) {
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      dir.y = 0;
+      if (dir.lengthSq() < 0.01) dir.set(0, 0, -1);
+      dir.normalize();
+      roomEl.object3D.position.copy(worldPos);
+      roomEl.object3D.rotation.set(0, Math.atan2(-dir.x, -dir.z), 0);
+      roomEl.setAttribute('visible', 'true');
+    }
+
+    /* ====================================================================
+       PATH A: Native WebXR (Android Chrome + ARCore)
+       ==================================================================== */
+    function registerWebXR() {
+      AFRAME.registerComponent('room-placer', {
+        init: function () {
+          const scene = this.el;
+          const room = $('room-origin');
+          const reticle = $('placement-reticle');
+          const hint = $('hint-banner');
+          const pos = new THREE.Vector3();
+          let anchored = false, gotHit = false;
+
+          const resetHint = () => {
+            hint.style.display = 'block';
+            hint.textContent = 'Point at the floor and move slowly';
+            hint.classList.remove('ready');
+          };
+
+          scene.addEventListener('enter-vr', () => {
+            if (!scene.is('ar-mode')) return;
+            $('start-screen').style.display = 'none';
+            resetHint();
+          });
+          scene.addEventListener('exit-vr', () => { $('start-screen').style.display = 'flex'; });
+
+          scene.addEventListener('ar-hit-test-achieved', () => {
+            if (anchored) return;
+            gotHit = true;
+            reticle.setAttribute('visible', 'true');
+            hint.textContent = 'Surface found! Tap to place';
+            hint.classList.add('ready');
+          });
+
+          scene.addEventListener('ar-hit-test-select', () => {
+            if (anchored || !gotHit) return;
+            reticle.object3D.getWorldPosition(pos);
+            placeRoomAt(room, pos, scene.camera);
+            reticle.setAttribute('visible', 'false');
+            scene.setAttribute('ar-hit-test', 'enabled', false);
+            anchored = true;
+            hint.style.display = 'none';
+            $('theme-dock').style.display = 'flex';
+            $('reposition-btn').style.display = 'flex';
+          });
+
+          $('reposition-btn').addEventListener('click', () => {
+            anchored = false; gotHit = false;
+            room.setAttribute('visible', 'false');
+            $('theme-dock').style.display = 'none';
+            $('reposition-btn').style.display = 'none';
+            resetHint();
+            scene.setAttribute('ar-hit-test', 'enabled', true);
+          });
+
+          $('start-btn').addEventListener('click', () => scene.enterAR());
+        }
+      });
+    }
+
+    /* ====================================================================
+       PATH B: 8th Wall SLAM (iPhone and other browsers)
+       ==================================================================== */
+    let slamStatus = 'waiting', slamSeen = false;
+
+    function register8thWall() {
+      AFRAME.registerComponent('room-placer', {
+        init: function () {
+          this.scene = this.el;
+          this.cameraEl = document.querySelector('a-camera');
+          this.room = $('room-origin');
+          this.reticle = $('placement-reticle');
+          this.hint = $('hint-banner');
+
+          this.isAnchored = false;
+          this.realityReady = false;
+          this.hasValidFloorHit = false;
+          this.stableFrames = 0;
+          this.lastHitY = null;
+          this.floorPoint = new THREE.Vector3();
+          this.hasFloorPoint = false;
+          this.tmp = new THREE.Vector3();
+          this.camPos = new THREE.Vector3();
+          this.raycaster = new THREE.Raycaster();
+          this.centerNDC = new THREE.Vector2(0, 0);
+          this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+          this.lastHud = 0;
+          this.t0 = 0;
+
+          $('debug-hud').style.display = 'block';
+          this.hint.style.display = 'block';
+          this.hint.textContent = 'Point your phone down at the floor';
+
+          this.scene.addEventListener('realityready', () => {
+            this.realityReady = true;
+            this.t0 = performance.now();
+            const s = $('start-screen');
+            s.style.opacity = '0';
+            setTimeout(() => (s.style.display = 'none'), 400);
+          });
+
+          // One tap places the room in world space. It is never moved again.
+          window.addEventListener('click', (e) => {
+            if (this.isAnchored || !this.hasValidFloorHit || this.stableFrames < 20) return;
+            if (e.target.closest('button') || e.target.closest('#theme-dock')) return;
+            const cam = this.cameraEl.getObject3D('camera');
+            if (!cam) return;
+            placeRoomAt(this.room, this.floorPoint, cam);
+            this.reticle.setAttribute('visible', 'false');
+            this.isAnchored = true;
+            this.hint.style.display = 'none';
+            $('theme-dock').style.display = 'flex';
+            $('reposition-btn').style.display = 'flex';
+          });
+
+          $('reposition-btn').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.isAnchored = false;
+            this.hasValidFloorHit = false;
+            this.hasFloorPoint = false;
+            this.stableFrames = 0;
+            this.room.setAttribute('visible', 'false');
+            $('theme-dock').style.display = 'none';
+            $('reposition-btn').style.display = 'none';
+            this.hint.style.display = 'block';
+            this.hint.textContent = 'Point your phone down at the floor';
+            this.hint.classList.remove('ready');
+          });
+        },
+
+        applyFloorPoint: function (x, y, z) {
+          if (!this.hasFloorPoint) {
+            this.floorPoint.set(x, y, z);
+            this.hasFloorPoint = true;
+          } else {
+            this.floorPoint.lerp(this.tmp.set(x, y, z), 0.25);
+          }
+          if (this.lastHitY !== null && Math.abs(this.lastHitY - y) < 0.05) this.stableFrames++;
+          else this.stableFrames = 0;
+          this.lastHitY = y;
+        },
+
+        queryFloor: function (camY) {
+          const XR = window.XR8;
+          if (!XR || !XR.XrController || !XR.XrController.hitTest) return false;
+          try {
+            const res = XR.XrController.hitTest(0.5, 0.5, ['DETECTED_SURFACE', 'ESTIMATED_SURFACE']);
+            const hits = Array.isArray(res) ? res : [];
+            const f = hits.find((h) => h.position && camY - h.position.y > 0.8 && camY - h.position.y < 2.2);
+            if (f) { this.applyFloorPoint(f.position.x, f.position.y, f.position.z); return true; }
+          } catch (err) {}
+          return false;
+        },
+
+        updateHud: function (time, cam) {
+          if (time - this.lastHud < 200) return;
+          this.lastHud = time;
+          let msg;
+          if (!this.realityReady) {
+            msg = typeof XR8 === 'undefined' && time > 8000 ? 'xr.js FAILED TO LOAD (check path)' : 'Engine loading...';
+          } else if (!slamSeen && performance.now() - this.t0 > 6000) {
+            msg = 'SLAM NOT RUNNING: host xr-slam.js next to xr.js';
+          } else {
+            msg = 'SLAM: ' + slamStatus;
+          }
+          const p = this.camPos;
+          $('debug-hud').textContent = msg + ' | cam ' + p.x.toFixed(2) + ', ' + p.y.toFixed(2) + ', ' + p.z.toFixed(2);
+        },
+
+        tick: function (time) {
+          const cam = this.cameraEl.getObject3D('camera');
+          if (cam) { cam.getWorldPosition(this.camPos); this.updateHud(time, cam); }
+          if (this.isAnchored || !this.realityReady || !cam) return;
+
+          let found = this.queryFloor(this.camPos.y);
+          if (!found) {
+            this.raycaster.setFromCamera(this.centerNDC, cam);
+            const hit = this.raycaster.ray.intersectPlane(this.groundPlane, new THREE.Vector3());
+            if (hit) { this.applyFloorPoint(hit.x, 0, hit.z); found = true; }
+          }
+
+          if (found) {
+            const dist = this.camPos.distanceTo(this.floorPoint);
+            if (dist >= 0.8 && dist <= 8.0) {
+              this.reticle.object3D.position.copy(this.floorPoint);
+              this.reticle.object3D.position.y += 0.01;
+              this.reticle.setAttribute('visible', 'true');
+              this.hasValidFloorHit = true;
+              if (this.stableFrames >= 20) {
+                this.hint.textContent = 'Floor found! Tap to place';
+                this.hint.classList.add('ready');
+              } else {
+                this.hint.textContent = 'Scanning floor... move phone slowly';
+                this.hint.classList.remove('ready');
+              }
+              return;
+            }
+          }
+
+          if (this.hasValidFloorHit) {
+            this.hasValidFloorHit = false;
+            this.stableFrames = 0;
+            this.reticle.setAttribute('visible', 'false');
+            this.hint.textContent = 'Point your phone down at the floor';
+            this.hint.classList.remove('ready');
+          }
+        }
+      });
+    }
+
+    /* ====================================================================
+       BOOT: pick the engine, load only what it needs, then build the scene
+       ==================================================================== */
+    (async () => {
+      const force8w = new URLSearchParams(location.search).get('engine') === '8thwall';
+      let useWebXR = false;
+      try {
+        useWebXR = !force8w && !!(navigator.xr && (await navigator.xr.isSessionSupported('immersive-ar')));
+      } catch (e) {}
+
+      try {
+        if (useWebXR) {
+          await loadScript('https://aframe.io/releases/1.5.0/aframe.min.js');
+          registerWebXR();
+
+          document.body.insertAdjacentHTML('beforeend', `
+            <a-scene room-placer vr-mode-ui="enabled: false"
+              webxr="requiredFeatures: hit-test, local-floor; optionalFeatures: dom-overlay; overlayElement: #overlay"
+              ar-hit-test="target: #placement-reticle; enabled: true"
+              shadow="type: pcfsoft"
+              renderer="physicallyCorrectLights: true; toneMapping: ACESFilmic; alpha: true">
+              ${sceneContent(true)}
+            </a-scene>`);
+
+          $('spinner').style.display = 'none';
+          $('start-btn').style.display = 'inline-block';
+          $('start-msg').textContent = 'Stand in an open area with a well-lit floor, then tap Start AR.';
+        } else {
+          window.addEventListener('xrloaded', () => {
+            XR8.addCameraPipelineModule({
+              name: 'slam-status',
+              onUpdate: ({ processCpuResult }) => {
+                const r = processCpuResult && processCpuResult.reality;
+                if (r && r.trackingStatus) { slamSeen = true; slamStatus = r.trackingStatus; }
+              }
+            });
+          });
+
+          // 8frame is 8th Wall's A-Frame build. Do not load standard A-Frame as well.
+          await loadScript('https://cdn.8thwall.com/web/aframe/8frame-1.5.0.min.js');
+          await loadScript('https://cdn.8thwall.com/web/xrextras/xrextras.js');
+          await loadScript('./xr.js', { 'data-preload-chunks': 'slam' });
+          register8thWall();
+
+          document.body.insertAdjacentHTML('beforeend', `
+            <a-scene room-placer xrextras-almost-there xrextras-runtime-error
+              shadow="type: pcfsoft"
+              renderer="physicallyCorrectLights: true; toneMapping: ACESFilmic"
+              xrweb="allowedDevices: any; scale: responsive">
+              ${sceneContent(false)}
+            </a-scene>`);
+
+          $('start-msg').textContent = 'Initializing AR Room...';
+        }
+      } catch (err) {
+        showError(err.message + '. Check the file path and that the page is served over HTTPS.');
+      }
+    })();
+  </script>
 </body>
 </html>
