@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>AIROOM - Multi-Theme WebAR</title>
+  <title>AIROOM - Interactive AR Zoo</title>
 
   <!-- A-Frame & 8th Wall Extras -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -80,24 +80,26 @@
     /* Bottom Theme Switcher Dock */
     #theme-dock {
       position: fixed; 
-      bottom: 28px; 
+      bottom: 24px; 
       left: 50%; 
       transform: translateX(-50%);
       display: none; 
-      gap: 8px; 
+      gap: 6px; 
       background: rgba(15, 23, 42, 0.88);
-      padding: 8px; 
+      padding: 6px; 
       border-radius: 40px; 
       z-index: 10;
       backdrop-filter: blur(10px); 
       box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+      max-width: calc(100vw - 24px);
+      overflow-x: auto;
     }
 
     .theme-btn {
       border: none; 
-      padding: 10px 16px; 
+      padding: 10px 14px; 
       border-radius: 30px;
-      font-size: 14px; 
+      font-size: 13px; 
       font-weight: 600; 
       cursor: pointer;
       color: #cbd5e1; 
@@ -107,9 +109,28 @@
     }
 
     .theme-btn.active {
-      background: #10b981; 
+      background: #0ea5e9; 
       color: #ffffff;
-      box-shadow: 0 2px 10px rgba(16, 185, 129, 0.4);
+      box-shadow: 0 2px 10px rgba(14, 165, 233, 0.45);
+    }
+
+    /* Active Zone Pill Banner (Top-Left after placing) */
+    #zone-badge {
+      position: fixed;
+      top: 24px;
+      left: 16px;
+      z-index: 10;
+      display: none;
+      background: rgba(15, 23, 42, 0.82);
+      color: #f8fafc;
+      padding: 8px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      font-size: 12px;
+      font-weight: 600;
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
     }
 
     /* Top-Right Action Buttons */
@@ -195,6 +216,7 @@
         this.roomRoot = document.getElementById('room-origin');
         this.reticle = document.getElementById('placement-reticle');
         this.hintBanner = document.getElementById('hint-banner');
+        this.zoneBadge = document.getElementById('zone-badge');
         this.themeDock = document.getElementById('theme-dock');
         this.repositionBtn = document.getElementById('reposition-btn');
         this.customLoader = document.getElementById('custom-loader');
@@ -245,6 +267,7 @@
 
           // Update UI
           this.hintBanner.style.display = 'none';
+          this.zoneBadge.style.display = 'block';
           this.themeDock.style.display = 'flex';
           this.repositionBtn.style.display = 'flex';
         };
@@ -263,6 +286,7 @@
           this.isAnchored = false;
           this.roomRoot.object3D.matrixAutoUpdate = true;
           this.roomRoot.setAttribute('visible', 'false');
+          this.zoneBadge.style.display = 'none';
           this.themeDock.style.display = 'none';
           this.repositionBtn.style.display = 'none';
           this.hintBanner.style.display = 'block';
@@ -307,16 +331,28 @@
       }
     });
 
-    // Global function to switch themes anywhere in the room instantly
-    function switchTheme(themeName, btnElement) {
-      const themes = ['japan', 'uk', 'korea'];
+    const ZONE_LABELS = {
+      aquarium: '🌊 Zone 1: Aquarium & Ocean Dome (Look up!)',
+      aviary:   '🦋 Zone 2: Aviary & Sky Sanctuary',
+      reptiles: '🦎 Zone 3: Rainforest & Reptile House',
+      meadow:   '🦌 Zone 4: Wildlife Meadow'
+    };
+
+    // Global function to switch AR Zoo habitats anywhere in the room instantly
+    function switchTheme(zoneName, btnElement) {
+      const zones = ['aquarium', 'aviary', 'reptiles', 'meadow'];
       
-      themes.forEach(t => {
-        const container = document.getElementById(`theme-${t}`);
+      zones.forEach(z => {
+        const container = document.getElementById(`theme-${z}`);
         if (container) {
-          container.setAttribute('visible', t === themeName);
+          container.setAttribute('visible', z === zoneName);
         }
       });
+
+      const zoneBadge = document.getElementById('zone-badge');
+      if (zoneBadge && ZONE_LABELS[zoneName]) {
+        zoneBadge.textContent = ZONE_LABELS[zoneName];
+      }
 
       document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
       btnElement.classList.add('active');
@@ -328,18 +364,20 @@
   <!-- Custom Loading Screen -->
   <div id="custom-loader">
     <div class="spinner"></div>
-    <p style="margin-top: 16px; font-size: 14px; font-weight: 500; letter-spacing: 0.5px;">Initializing AR Room...</p>
+    <p style="margin-top: 16px; font-size: 14px; font-weight: 500; letter-spacing: 0.5px;">Initializing AR Zoo...</p>
   </div>
 
   <!-- UI Overlays -->
   <div id="hint-banner">Point your phone down at the floor</div>
+  <div id="zone-badge">🌊 Zone 1: Aquarium & Ocean Dome (Look up!)</div>
   <button id="recenter-btn" class="ar-ctrl-btn" title="Recenter AR">⟲</button>
-  <button id="reposition-btn" class="ar-ctrl-btn" title="Move Room">📍</button>
+  <button id="reposition-btn" class="ar-ctrl-btn" title="Move Zoo">📍</button>
 
   <div id="theme-dock">
-    <button class="theme-btn active" onclick="switchTheme('japan', this)">🇯🇵 Japan</button>
-    <button class="theme-btn" onclick="switchTheme('uk', this)">🇬🇧 UK</button>
-    <button class="theme-btn" onclick="switchTheme('korea', this)">🇰🇷 Korea</button>
+    <button class="theme-btn active" onclick="switchTheme('aquarium', this)">🌊 Aquarium</button>
+    <button class="theme-btn" onclick="switchTheme('aviary', this)">🦋 Aviary</button>
+    <button class="theme-btn" onclick="switchTheme('reptiles', this)">🦎 Reptiles</button>
+    <button class="theme-btn" onclick="switchTheme('meadow', this)">🦌 Meadow</button>
   </div>
 
   <!-- 8th Wall World Effects Scene -->
@@ -352,28 +390,27 @@
     xrweb="allowedDevices: any">
 
     <!-- =================================================================== -->
-    <!-- PRELOADED 3D ASSETS (Matching your exact folder files)              -->
+    <!-- PRELOADED 3D AR ZOO ASSETS (Place Zone 1 .glb files in zoo/aquarium)-->
     <!-- =================================================================== -->
-    <a-assets timeout="20000">
-      <!-- Japan Models -->
-      <a-asset-item id="model-torii-gate" src="./assets/models/japan/torii-gate.glb"></a-asset-item>
-      <a-asset-item id="model-toro-lantern" src="./assets/models/japan/toro-stone-lantern.glb"></a-asset-item>
-      <a-asset-item id="model-maple-tree" src="./assets/models/japan/japanese-maple-tree.glb"></a-asset-item>
-      <a-asset-item id="model-ema-board" src="./assets/models/japan/ema-prayer-board.glb"></a-asset-item>
-      <a-asset-item id="model-izakaya" src="./assets/models/japan/izakaya-ramen-facade.glb"></a-asset-item>
-      <a-asset-item id="model-matcha" src="./assets/models/japan/matcha-tea-ceremony.glb"></a-asset-item>
-      <a-asset-item id="model-japan-garden" src="./assets/models/japan/spatial-japan-garden.glb"></a-asset-item>
+    <a-assets timeout="25000">
+      <!-- Zone 1: Aquarium & Ocean Dome -->
+      <a-asset-item id="model-koi-fish" src="./assets/models/zoo/aquarium/koi-fish-group.glb"></a-asset-item>
+      <a-asset-item id="model-sea-turtle" src="./assets/models/zoo/aquarium/green-sea-turtle.glb"></a-asset-item>
+      <a-asset-item id="model-manta-ray" src="./assets/models/zoo/aquarium/spotted-manta-ray.glb"></a-asset-item>
+      <a-asset-item id="model-jellyfish" src="./assets/models/zoo/aquarium/moon-jellyfish-group.glb"></a-asset-item>
 
-      <!-- UK Models (Animated Koi currently in assets/models/uk/) -->
-      <a-asset-item id="model-uk-1" src="./assets/models/uk/koi-fish-group.glb"></a-asset-item>
-      <!-- Uncomment when you add these files to assets/models/uk/ -->
-      <!-- <a-asset-item id="model-uk-2" src="./assets/models/uk/phone_booth.glb"></a-asset-item> -->
-      <!-- <a-asset-item id="model-uk-3" src="./assets/models/uk/gramophone.glb"></a-asset-item> -->
+      <!-- Zone 2: Aviary (Uncomment as you add models to assets/models/zoo/aviary/) -->
+      <!-- <a-asset-item id="model-butterflies" src="./assets/models/zoo/aviary/butterfly-swarm.glb"></a-asset-item> -->
+      <!-- <a-asset-item id="model-barn-owl" src="./assets/models/zoo/aviary/barn-owl.glb"></a-asset-item> -->
+      <!-- <a-asset-item id="model-crane" src="./assets/models/zoo/aviary/red-crowned-crane.glb"></a-asset-item> -->
 
-      <!-- Korea Models (Uncomment when you add files to assets/models/korea/) -->
-      <!-- <a-asset-item id="model-korea-1" src="./assets/models/korea/hanok_gate.glb"></a-asset-item> -->
-      <!-- <a-asset-item id="model-korea-2" src="./assets/models/korea/lantern.glb"></a-asset-item> -->
-      <!-- <a-asset-item id="model-korea-3" src="./assets/models/korea/jangdokdae.glb"></a-asset-item> -->
+      <!-- Zone 3: Reptiles (Uncomment as you add models to assets/models/zoo/reptiles/) -->
+      <!-- <a-asset-item id="model-tree-boa" src="./assets/models/zoo/reptiles/emerald-tree-boa.glb"></a-asset-item> -->
+      <!-- <a-asset-item id="model-tree-frog" src="./assets/models/zoo/reptiles/japanese-tree-frog.glb"></a-asset-item> -->
+
+      <!-- Zone 4: Wildlife Meadow (Uncomment as you add models to assets/models/zoo/meadow/) -->
+      <!-- <a-asset-item id="model-sika-deer" src="./assets/models/zoo/meadow/nara-sika-deer.glb"></a-asset-item> -->
+      <!-- <a-asset-item id="model-red-fox" src="./assets/models/zoo/meadow/british-red-fox.glb"></a-asset-item> -->
     </a-assets>
 
     <!-- Camera (Disable A-Frame's built-in controls so 8th Wall SLAM has full control) -->
@@ -394,51 +431,69 @@
     <!-- =================================================================== -->
     <a-entity id="room-origin" visible="false">
 
-      <!-- THEME 1: JAPAN (Larger Full-Scale Layout) -->
-      <a-entity id="theme-japan" visible="true">
-        <!-- Center-Back: Torii Gate -->
-        <a-gltf-model src="#model-torii-gate" position="0 0 -4.2" scale="1.1 1.1 1.1"></a-gltf-model>
-
-        <!-- Back-Left: Japanese Maple Tree -->
-        <a-gltf-model src="#model-maple-tree" position="-3.0 0 -3.4" rotation="0 20 0" scale="1.15 1.15 1.15"></a-gltf-model>
-
-        <!-- Back-Right: Ema Prayer Board -->
-        <a-gltf-model src="#model-ema-board" position="2.8 0 -3.0" rotation="0 -35 0" scale="1.15 1.15 1.15"></a-gltf-model>
-
-        <!-- Mid-Right: Stone Lantern -->
-        <a-gltf-model src="#model-toro-lantern" position="1.9 0 -1.8" rotation="0 -25 0" scale="1.15 1.15 1.15"></a-gltf-model>
-
-        <!-- Left Side: Izakaya / Ramen Shop Facade -->
-        <a-gltf-model src="#model-izakaya" position="-3.5 0 0.2" rotation="0 75 0" scale="1.15 1.15 1.15"></a-gltf-model>
-
-        <!-- Foreground Center-Left: Matcha Tea Ceremony -->
-        <a-gltf-model src="#model-matcha" position="-0.8 0 -1.3" rotation="0 20 0" scale="4.2 4.2 4.2"></a-gltf-model>
-
-        <!-- Behind User (Turn 180°): Spatial Japan Garden -->
-        <a-gltf-model src="#model-japan-garden" position="0 0 3.8" rotation="0 180 0" scale="0.8 0.8 0.8"></a-gltf-model>
-      </a-entity>
-
-      <!-- THEME 2: UK -->
-      <a-entity id="theme-uk" visible="false">
-        <!-- Animated Swimming Koi Fish Group (plays Koi_Swim_Loop automatically) -->
+      <!-- ZONE 1: AQUARIUM & OCEAN DOME (Active by default — Multi-level 360° layout) -->
+      <a-entity id="theme-aquarium" visible="true">
+        <!-- Floor Level: Swimming Koi Fish Pond -->
         <a-gltf-model
-          src="#model-uk-1"
+          src="#model-koi-fish"
           position="0 0.15 -2.2"
           scale="1.2 1.2 1.2"
           glb-animator="speed: 1.0">
         </a-gltf-model>
 
-        <!-- Uncomment when you add more UK models -->
-        <!-- <a-gltf-model src="#model-uk-2" position="-1.8 0 -2.8" rotation="0 20 0" scale="1 1 1"></a-gltf-model> -->
-        <!-- <a-gltf-model src="#model-uk-3" position="1.9 0 -2.6" rotation="0 -20 0" scale="1 1 1"></a-gltf-model> -->
+        <!-- Eye Level: Green Sea Turtle gliding in a wide calm loop -->
+        <a-gltf-model
+          src="#model-sea-turtle"
+          position="0 1.10 -2.3"
+          scale="1.0 1.0 1.0"
+          glb-animator="speed: 1.0">
+        </a-gltf-model>
+
+        <!-- Overhead Ceiling Level: Spotted Manta Ray soaring above -->
+        <a-gltf-model
+          src="#model-manta-ray"
+          position="0 2.05 -2.4"
+          scale="1.15 1.15 1.15"
+          glb-animator="speed: 0.9">
+        </a-gltf-model>
+
+        <!-- Left Corner: Glowing Moon Jellyfish Group -->
+        <a-gltf-model
+          src="#model-jellyfish"
+          position="-1.45 0.95 -1.8"
+          scale="1.0 1.0 1.0"
+          glb-animator="speed: 1.0">
+        </a-gltf-model>
+
+        <!-- Right-Rear Corner: Second Moon Jellyfish Cluster (Turn around to discover!) -->
+        <a-gltf-model
+          src="#model-jellyfish"
+          position="1.55 1.10 -1.4"
+          rotation="0 140 0"
+          scale="0.85 0.85 0.85"
+          glb-animator="speed: 0.85">
+        </a-gltf-model>
       </a-entity>
 
-      <!-- THEME 3: KOREA -->
-      <a-entity id="theme-korea" visible="false">
-        <!-- Uncomment when you add Korea models -->
-        <!-- <a-gltf-model src="#model-korea-1" position="0 0 -3.2" scale="1 1 1"></a-gltf-model> -->
-        <!-- <a-gltf-model src="#model-korea-2" position="-1.8 0 -2.4" rotation="0 25 0" scale="1 1 1"></a-gltf-model> -->
-        <!-- <a-gltf-model src="#model-korea-3" position="1.8 0 -2.4" rotation="0 -25 0" scale="1 1 1"></a-gltf-model> -->
+      <!-- ZONE 2: AVIARY & SKY SANCTUARY -->
+      <a-entity id="theme-aviary" visible="false">
+        <!-- Uncomment once Zone 2 models are added -->
+        <!-- <a-gltf-model src="#model-butterflies" position="0 1.4 -2.0" scale="1 1 1" glb-animator></a-gltf-model> -->
+        <!-- <a-gltf-model src="#model-barn-owl" position="0 2.1 -2.4" scale="1 1 1" glb-animator></a-gltf-model> -->
+      </a-entity>
+
+      <!-- ZONE 3: RAINFOREST & REPTILE HOUSE -->
+      <a-entity id="theme-reptiles" visible="false">
+        <!-- Uncomment once Zone 3 models are added -->
+        <!-- <a-gltf-model src="#model-tree-boa" position="0 0.02 -2.0" scale="1 1 1" glb-animator></a-gltf-model> -->
+        <!-- <a-gltf-model src="#model-tree-frog" position="0.8 0.0 -1.5" scale="1 1 1" glb-animator></a-gltf-model> -->
+      </a-entity>
+
+      <!-- ZONE 4: WILDLIFE MEADOW -->
+      <a-entity id="theme-meadow" visible="false">
+        <!-- Uncomment once Zone 4 models are added -->
+        <!-- <a-gltf-model src="#model-sika-deer" position="0 0 -2.6" scale="1 1 1" glb-animator></a-gltf-model> -->
+        <!-- <a-gltf-model src="#model-red-fox" position="-1.4 0 -2.0" rotation="0 25 0" scale="1 1 1" glb-animator></a-gltf-model> -->
       </a-entity>
 
     </a-entity>
