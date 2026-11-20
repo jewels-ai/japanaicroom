@@ -136,6 +136,58 @@
   </style>
 
   <script>
+    // =========================================================================
+    // 1. GLB ANIMATION PLAYER COMPONENT (Plays baked AnimationClips in .GLB)
+    // =========================================================================
+    AFRAME.registerComponent('glb-animator', {
+      schema: {
+        speed: { type: 'number', default: 1.0 }
+      },
+      init: function () {
+        this.mixer = null;
+
+        this.startAnimations = (model) => {
+          if (!model) return;
+
+          // Prevent animated skinned meshes from disappearing near screen edges
+          model.traverse((obj) => {
+            if (obj.isMesh || obj.isSkinnedMesh) {
+              obj.frustumCulled = false;
+            }
+          });
+
+          if (model.animations && model.animations.length > 0) {
+            this.mixer = new THREE.AnimationMixer(model);
+            this.mixer.timeScale = this.data.speed;
+            model.animations.forEach((clip) => {
+              const action = this.mixer.clipAction(clip);
+              action.setLoop(THREE.LoopRepeat, Infinity);
+              action.play();
+            });
+          }
+        };
+
+        // Handle both future model-loaded events and already-loaded models
+        this.el.addEventListener('model-loaded', (e) => {
+          this.startAnimations(e.detail.model);
+        });
+
+        const existingMesh = this.el.getObject3D('mesh');
+        if (existingMesh) {
+          this.startAnimations(existingMesh);
+        }
+      },
+      tick: function (time, delta) {
+        if (this.mixer) {
+          // Clamp delta to avoid huge jumps when switching tabs
+          this.mixer.update(Math.min(delta, 50) / 1000);
+        }
+      }
+    });
+
+    // =========================================================================
+    // 2. FLOOR RETICLE & LOCKED ROOM ANCHOR MANAGER
+    // =========================================================================
     AFRAME.registerComponent('room-anchor-manager', {
       init: function () {
         this.scene = this.el;
@@ -176,7 +228,7 @@
           const cameraObj = this.cameraEl.getObject3D('camera');
           if (!cameraObj) return;
 
-          // Compute yaw so the Torii Gate faces the user
+          // Compute yaw so the scene faces the user
           cameraObj.getWorldDirection(this.camDir);
           const yawDeg = THREE.MathUtils.radToDeg(Math.atan2(-this.camDir.x, -this.camDir.z));
 
@@ -300,7 +352,7 @@
     xrweb="allowedDevices: any">
 
     <!-- =================================================================== -->
-    <!-- PRELOADED 3D ASSETS (Matching your exact assets/models/japan/ files)-->
+    <!-- PRELOADED 3D ASSETS (Matching your exact folder files)              -->
     <!-- =================================================================== -->
     <a-assets timeout="20000">
       <!-- Japan Models -->
@@ -312,15 +364,16 @@
       <a-asset-item id="model-matcha" src="./assets/models/japan/matcha-tea-ceremony.glb"></a-asset-item>
       <a-asset-item id="model-japan-garden" src="./assets/models/japan/spatial-japan-garden.glb"></a-asset-item>
 
-      <!-- UK Models -->
-      <a-asset-item id="model-uk-1" src="./assets/models/uk/phone_booth.glb"></a-asset-item>
-      <a-asset-item id="model-uk-2" src="./assets/models/uk/big_ben.glb"></a-asset-item>
-      <a-asset-item id="model-uk-3" src="./assets/models/uk/lamp_post.glb"></a-asset-item>
+      <!-- UK Models (Animated Koi currently in assets/models/uk/) -->
+      <a-asset-item id="model-uk-1" src="./assets/models/uk/koi-fish-group.glb"></a-asset-item>
+      <!-- Uncomment when you add these files to assets/models/uk/ -->
+      <!-- <a-asset-item id="model-uk-2" src="./assets/models/uk/phone_booth.glb"></a-asset-item> -->
+      <!-- <a-asset-item id="model-uk-3" src="./assets/models/uk/gramophone.glb"></a-asset-item> -->
 
-      <!-- Korea Models -->
-      <a-asset-item id="model-korea-1" src="./assets/models/korea/hanok_gate.glb"></a-asset-item>
-      <a-asset-item id="model-korea-2" src="./assets/models/korea/lantern.glb"></a-asset-item>
-      <a-asset-item id="model-korea-3" src="./assets/models/korea/jangdokdae.glb"></a-asset-item>
+      <!-- Korea Models (Uncomment when you add files to assets/models/korea/) -->
+      <!-- <a-asset-item id="model-korea-1" src="./assets/models/korea/hanok_gate.glb"></a-asset-item> -->
+      <!-- <a-asset-item id="model-korea-2" src="./assets/models/korea/lantern.glb"></a-asset-item> -->
+      <!-- <a-asset-item id="model-korea-3" src="./assets/models/korea/jangdokdae.glb"></a-asset-item> -->
     </a-assets>
 
     <!-- Camera (Disable A-Frame's built-in controls so 8th Wall SLAM has full control) -->
@@ -367,16 +420,25 @@
 
       <!-- THEME 2: UK -->
       <a-entity id="theme-uk" visible="false">
-        <a-gltf-model src="#model-uk-1" position="-1.8 0 -2.8" rotation="0 20 0" scale="1 1 1"></a-gltf-model>
-        <a-gltf-model src="#model-uk-2" position="0 0 -3.5" scale="1 1 1"></a-gltf-model>
-        <a-gltf-model src="#model-uk-3" position="1.9 0 -2.6" rotation="0 -20 0" scale="1 1 1"></a-gltf-model>
+        <!-- Animated Swimming Koi Fish Group (plays Koi_Swim_Loop automatically) -->
+        <a-gltf-model
+          src="#model-uk-1"
+          position="0 0.15 -2.2"
+          scale="1.2 1.2 1.2"
+          glb-animator="speed: 1.0">
+        </a-gltf-model>
+
+        <!-- Uncomment when you add more UK models -->
+        <!-- <a-gltf-model src="#model-uk-2" position="-1.8 0 -2.8" rotation="0 20 0" scale="1 1 1"></a-gltf-model> -->
+        <!-- <a-gltf-model src="#model-uk-3" position="1.9 0 -2.6" rotation="0 -20 0" scale="1 1 1"></a-gltf-model> -->
       </a-entity>
 
       <!-- THEME 3: KOREA -->
       <a-entity id="theme-korea" visible="false">
-        <a-gltf-model src="#model-korea-1" position="0 0 -3.2" scale="1 1 1"></a-gltf-model>
-        <a-gltf-model src="#model-korea-2" position="-1.8 0 -2.4" rotation="0 25 0" scale="1 1 1"></a-gltf-model>
-        <a-gltf-model src="#model-korea-3" position="1.8 0 -2.4" rotation="0 -25 0" scale="1 1 1"></a-gltf-model>
+        <!-- Uncomment when you add Korea models -->
+        <!-- <a-gltf-model src="#model-korea-1" position="0 0 -3.2" scale="1 1 1"></a-gltf-model> -->
+        <!-- <a-gltf-model src="#model-korea-2" position="-1.8 0 -2.4" rotation="0 25 0" scale="1 1 1"></a-gltf-model> -->
+        <!-- <a-gltf-model src="#model-korea-3" position="1.8 0 -2.4" rotation="0 -25 0" scale="1 1 1"></a-gltf-model> -->
       </a-entity>
 
     </a-entity>
