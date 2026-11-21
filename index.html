@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>AIROOM - Interactive AR Zoo</title>
+  <title>AIROOM - Interactive AR Zoo &amp; British Colony</title>
 
   <!-- A-Frame & 8th Wall Extras -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -103,7 +103,7 @@
       max-width: calc(100vw - 88px);
     }
 
-    /* Subtle "Tap any animal" Toast Tip */
+    /* Subtle "Tap any animal/landmark" Toast Tip */
     #tap-tip {
       position: fixed;
       top: 66px;
@@ -161,6 +161,11 @@
       box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
       max-width: calc(100vw - 24px);
       overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    #theme-dock::-webkit-scrollbar {
+      display: none;
     }
 
     .theme-btn {
@@ -183,7 +188,7 @@
     }
 
     /* ===================================================================== */
-    /* TAP-TO-LEARN INTERACTIVE ANIMAL CARD                                  */
+    /* TAP-TO-LEARN INTERACTIVE INFO CARD                                    */
     /* ===================================================================== */
     #animal-card {
       position: fixed;
@@ -359,9 +364,10 @@
 
   <script>
     // =========================================================================
-    // 0. ANIMAL KNOWLEDGE BASE (Tap-to-Learn Card Data for All 4 Zoo Zones)
+    // 0. KNOWLEDGE BASE (Tap-to-Learn Card Data for Zoo & British Colony)
     // =========================================================================
     const ANIMAL_DATA = {
+      // --- ZONE 1: AQUARIUM ---
       koi: {
         zone: 'aquarium',
         emoji: '🐟',
@@ -406,7 +412,8 @@
         size: '25 – 40 cm bell',
         fact: 'Moon jellyfish are 95% water and have no brain, heart, or bones. The four glowing rings inside their translucent bell are their clover-shaped core.'
       },
-      // Pre-wired data for Zones 2–4 as you add their .GLB models
+
+      // --- ZONES 2–4: AVIARY, REPTILES, MEADOW ---
       butterflies: {
         zone: 'aviary',
         emoji: '🦋',
@@ -439,6 +446,107 @@
         habitat: 'Temperate Forests',
         size: '1.1 m shoulder height',
         fact: 'Sika deer keep their white spots even as adults and are famous in Nara, Japan for politely bowing their heads to visitors.'
+      },
+
+      // --- ZONE 5: BRITISH COLONIAL TOWN SQUARE (All 9 GLBs in assets/models/british/) ---
+      british_clock_tower: {
+        zone: 'british',
+        emoji: '🕰️',
+        name: 'Victorian Clock Tower',
+        scientific: 'Red Brick & Limestone • c. 1884',
+        status: 'Civic Landmark',
+        statusColor: '#d4af37',
+        habitat: 'Colonial Town Square',
+        size: '17 m height',
+        fact: 'Clock towers served as the civic heart of 19th-century British colonial towns, synchronizing railway timetables, harbor bells, and market hours.'
+      },
+      british_market_arcade: {
+        zone: 'british',
+        emoji: '🏛️',
+        name: 'Covered Market Arcade',
+        scientific: 'Arched Colonnade • c. 1879',
+        status: 'Trade Hall',
+        statusColor: '#10b981',
+        habitat: 'Commercial Quarter',
+        size: '3-Bay Arcade',
+        fact: 'Shaded by striped canvas awnings and ventilated by clerestory roofs, colonial market arcades offered fresh citrus, spices, and tea weighed on hanging brass scales.'
+      },
+      british_fort_bastion: {
+        zone: 'british',
+        emoji: '🏰',
+        name: 'Fort Bastion & Gabions',
+        scientific: 'Star-Fort Rampart • c. 1812',
+        status: 'Garrison Defense',
+        statusColor: '#ef4444',
+        habitat: 'Coastal Fortification',
+        size: '24-Pounder Battery',
+        fact: 'Angled stone ramparts with splayed cannon embrasures were topped with earth-filled wicker gabion baskets to absorb incoming artillery fire and shield the powder magazine.'
+      },
+      british_sailing_steamship: {
+        zone: 'british',
+        emoji: '⛵',
+        name: 'Auxiliary Sailing Steamship',
+        scientific: 'Copper-Sheathed Clipper • c. 1868',
+        status: 'Maritime Vessel',
+        statusColor: '#38bdf8',
+        habitat: 'Colonial Harbor',
+        size: '3-Masted Rig',
+        fact: 'Combining rigged sails with a coal-fired auxiliary steam funnel and brass propeller, these ships carried mail, passengers, and East India trade across the empire.'
+      },
+      british_stone_fountain: {
+        zone: 'british',
+        emoji: '⛲',
+        name: 'Stone Fountain & Horse Trough',
+        scientific: 'Red & White Masonry • c. 1872',
+        status: 'Public Utility',
+        statusColor: '#f59e0b',
+        habitat: 'Town Courtyard',
+        size: 'Man & Beast Basin',
+        fact: 'Public Victorian drinking fountains provided fresh water from a cast-brass lion spout for horses, travellers, and even a ground-level basin for dogs.'
+      },
+      british_newspaper_kiosk: {
+        zone: 'british',
+        emoji: '🗞️',
+        name: 'Newspaper Kiosk & Tea Stall',
+        scientific: 'Octagonal Timber Booth • c. 1882',
+        status: 'Street Booth',
+        statusColor: '#22c55e',
+        habitat: 'High Street Corner',
+        size: '8-Sided Pagoda',
+        fact: 'Painted in heritage dark green with scalloped trim and hinged shutters, street kiosks sold one-penny broadsheets alongside freshly brewed Ceylon tea.'
+      },
+      british_rifle_rack: {
+        zone: 'british',
+        emoji: '⚔️',
+        name: 'Garrison Rifle Rack',
+        scientific: 'Pattern 1853 Enfields • c. 1858',
+        status: 'Armoury Stand',
+        statusColor: '#fb923c',
+        habitat: 'Fort Guardhouse',
+        size: '6-Rifle Stand',
+        fact: 'Waxed oak armory stands kept percussion Enfield rifle-muskets, triangular socket bayonets, and leather cartridge pouches ready for immediate garrison inspection.'
+      },
+      british_cargo_goods: {
+        zone: 'british',
+        emoji: '📦',
+        name: 'Cargo & Trade Goods',
+        scientific: 'East India Wharf • c. 1874',
+        status: 'Maritime Freight',
+        statusColor: '#eab308',
+        habitat: 'Port Customs Pier',
+        size: 'Stenciled Pallet',
+        fact: 'Foil-lined Ceylon and Assam tea chests, woven Oriental carpets, coiled hemp hawser rope, and burlap spice sacks were stacked on timber wharves awaiting shipment.'
+      },
+      british_landscaping: {
+        zone: 'british',
+        emoji: '🌴',
+        name: 'Colonial Tropical Gardens',
+        scientific: 'Parterre & Shade Trees • c. 1876',
+        status: 'Estate Grounds',
+        statusColor: '#10b981',
+        habitat: 'Residency Lawn',
+        size: 'Boxwood & Banyan',
+        fact: 'British colonial estates blended formal English trimmed boxwood hedges and striped lawns with tropical banyan and royal palm trees for shade.'
       }
     };
 
@@ -468,6 +576,11 @@
       document.getElementById('card-habitat').textContent = `🌍 ${info.habitat}`;
       document.getElementById('card-size').textContent = `📏 ${info.size}`;
       document.getElementById('card-fact').textContent = info.fact;
+
+      const nextBtn = document.getElementById('next-animal-btn');
+      if (nextBtn) {
+        nextBtn.textContent = activeZone === 'british' ? 'Next Landmark →' : 'Next Animal →';
+      }
 
       document.getElementById('animal-card').classList.add('open');
 
@@ -608,14 +721,14 @@
           }
         });
 
-        // 2. Unified Tap Handler: Places the Zoo first, then enables Tap-to-Learn on Animals!
+        // 2. Unified Tap Handler: Places the AR world first, then enables Tap-to-Learn!
         const handleScreenTap = (e) => {
           if (e.target.closest('button, #theme-dock, #animal-card')) return;
 
           const cameraObj = this.cameraEl.getObject3D('camera');
           if (!cameraObj) return;
 
-          // PHASE A: Before anchor placement -> lock the AR Zoo onto the floor
+          // PHASE A: Before anchor placement -> lock the AR world onto the floor
           if (!this.isAnchored) {
             if (!this.hasValidFloorHit) return;
 
@@ -641,7 +754,7 @@
             return;
           }
 
-          // PHASE B: After placement -> Tap any 3D animal to open its learning card
+          // PHASE B: After placement -> Tap any 3D animal or British landmark to open its card
           this.detectTappedAnimal(e.clientX, e.clientY, cameraObj);
         };
 
@@ -670,14 +783,14 @@
           this.hintBanner.classList.remove('ready');
         });
 
-        // 5. Animal Guide button: opens/cycles the learning cards for the current zone
+        // 5. Guide button: opens/cycles the learning cards for the current zone
         this.guideBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           openNextAnimalInZone();
         });
       },
 
-      // Hybrid 3D Raycast + Moving-Root Screen-Space Hit Detection (Super reliable on animated GLBs!)
+      // Hybrid 3D Raycast + Moving-Root Screen-Space Hit Detection
       detectTappedAnimal: function (clientX, clientY, cameraObj) {
         const activeZoneEl = document.getElementById(`theme-${activeZone}`);
         if (!activeZoneEl) return;
@@ -688,7 +801,7 @@
         const animalEls = Array.from(activeZoneEl.querySelectorAll('[data-animal]'));
         if (animalEls.length === 0) return;
 
-        // 1. Direct Three.js 3D Raycast against visible animal meshes
+        // 1. Direct Three.js 3D Raycast against visible meshes
         this.raycaster.setFromCamera(this.tapNDC, cameraObj);
         const meshes = [];
         animalEls.forEach((el) => {
@@ -708,9 +821,9 @@
           return;
         }
 
-        // 2. Generous Screen-Space Proximity Fallback for fast-moving / skinned animals
+        // 2. Generous Screen-Space Proximity Fallback for mobile tapping
         let bestAnimal = null;
-        let bestScore = 0.22; // Generous mobile tap radius in NDC (~11% of screen)
+        let bestScore = 0.22;
 
         animalEls.forEach((el) => {
           const animalKey = el.getAttribute('data-animal');
@@ -725,7 +838,6 @@
           trackNodes.forEach((node) => {
             node.getWorldPosition(this.tempVec);
             this.tempVec.project(cameraObj);
-            // Ignore objects behind the camera
             if (this.tempVec.z > 1) return;
 
             const dist2D = Math.hypot(this.tempVec.x - this.tapNDC.x, this.tempVec.y - this.tapNDC.y);
@@ -740,7 +852,6 @@
           spawnTapRipple(clientX, clientY);
           openAnimalCard(bestAnimal);
         } else {
-          // Tapping empty space dismisses any open card
           closeAnimalCard();
         }
       },
@@ -785,15 +896,16 @@
       aquarium: '🌊 Zone 1: Aquarium & Ocean Dome (Look up!)',
       aviary:   '🦋 Zone 2: Aviary & Sky Sanctuary',
       reptiles: '🦎 Zone 3: Rainforest & Reptile House',
-      meadow:   '🦌 Zone 4: Wildlife Meadow'
+      meadow:   '🦌 Zone 4: Wildlife Meadow',
+      british:  '🇬🇧 Zone 5: British Colonial Town Square'
     };
 
-    // Global function to switch AR Zoo habitats anywhere in the room instantly
+    // Global function to switch AR habitats / themes anywhere in the room instantly
     function switchTheme(zoneName, btnElement) {
       activeZone = zoneName;
       closeAnimalCard();
 
-      const zones = ['aquarium', 'aviary', 'reptiles', 'meadow'];
+      const zones = ['aquarium', 'aviary', 'reptiles', 'meadow', 'british'];
       zones.forEach(z => {
         const container = document.getElementById(`theme-${z}`);
         if (container) {
@@ -806,6 +918,13 @@
         zoneBadge.textContent = ZONE_LABELS[zoneName];
       }
 
+      const tapTip = document.getElementById('tap-tip');
+      if (tapTip) {
+        tapTip.textContent = zoneName === 'british'
+          ? '👆 Tap any colonial landmark to learn!'
+          : '👆 Tap any swimming animal to learn!';
+      }
+
       document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
       btnElement.classList.add('active');
     }
@@ -816,7 +935,7 @@
   <!-- Custom Loading Screen -->
   <div id="custom-loader">
     <div class="spinner"></div>
-    <p style="margin-top: 16px; font-size: 14px; font-weight: 500; letter-spacing: 0.5px;">Initializing AR Zoo...</p>
+    <p style="margin-top: 16px; font-size: 14px; font-weight: 500; letter-spacing: 0.5px;">Initializing AR Experience...</p>
   </div>
 
   <!-- UI Overlays -->
@@ -825,11 +944,11 @@
   <div id="tap-tip">👆 Tap any swimming animal to learn!</div>
 
   <button id="recenter-btn" class="ar-ctrl-btn" title="Recenter AR">⟲</button>
-  <button id="reposition-btn" class="ar-ctrl-btn" title="Move Zoo">📍</button>
-  <button id="guide-btn" class="ar-ctrl-btn" title="Animal Fact Cards">📖</button>
+  <button id="reposition-btn" class="ar-ctrl-btn" title="Move Scene">📍</button>
+  <button id="guide-btn" class="ar-ctrl-btn" title="Interactive Fact Cards">📖</button>
 
-  <!-- Interactive Tap-to-Learn Animal Card -->
-  <div id="animal-card" role="dialog" aria-label="Animal Information Card">
+  <!-- Interactive Tap-to-Learn Information Card -->
+  <div id="animal-card" role="dialog" aria-label="Information Card">
     <div class="card-header">
       <div class="card-title-row">
         <div id="card-emoji" class="card-emoji">🐢</div>
@@ -858,12 +977,13 @@
     </div>
   </div>
 
-  <!-- Bottom Habitat Switcher Dock -->
+  <!-- Bottom Habitat & Theme Switcher Dock -->
   <div id="theme-dock">
     <button class="theme-btn active" onclick="switchTheme('aquarium', this)">🌊 Aquarium</button>
     <button class="theme-btn" onclick="switchTheme('aviary', this)">🦋 Aviary</button>
     <button class="theme-btn" onclick="switchTheme('reptiles', this)">🦎 Reptiles</button>
     <button class="theme-btn" onclick="switchTheme('meadow', this)">🦌 Meadow</button>
+    <button class="theme-btn" onclick="switchTheme('british', this)">🇬🇧 British</button>
   </div>
 
   <!-- 8th Wall World Effects Scene -->
@@ -876,9 +996,9 @@
     xrweb="allowedDevices: any">
 
     <!-- =================================================================== -->
-    <!-- PRELOADED 3D AR ZOO ASSETS (Matching assets/models/aquarium/)       -->
+    <!-- PRELOADED 3D AR ASSETS (aquarium + british)                         -->
     <!-- =================================================================== -->
-    <a-assets timeout="25000">
+    <a-assets timeout="35000">
       <!-- Zone 1: Aquarium & Ocean Dome -->
       <a-asset-item id="model-koi-fish" src="./assets/models/aquarium/koi-fish-group.glb"></a-asset-item>
       <a-asset-item id="model-sea-turtle" src="./assets/models/aquarium/green-sea-turtle.glb"></a-asset-item>
@@ -895,6 +1015,17 @@
 
       <!-- Zone 4: Wildlife Meadow (Uncomment as you add models to assets/models/meadow/) -->
       <!-- <a-asset-item id="model-sika-deer" src="./assets/models/meadow/nara-sika-deer.glb"></a-asset-item> -->
+
+      <!-- Zone 5: British Colonial Town Square (assets/models/british/) -->
+      <a-asset-item id="model-british-cargo" src="./assets/models/british/colonial_cargo_goods.glb"></a-asset-item>
+      <a-asset-item id="model-british-fort" src="./assets/models/british/colonial_fort_bastion.glb"></a-asset-item>
+      <a-asset-item id="model-british-landscaping" src="./assets/models/british/colonial_landscaping_tropical.glb"></a-asset-item>
+      <a-asset-item id="model-british-market" src="./assets/models/british/colonial_market_arcade.glb"></a-asset-item>
+      <a-asset-item id="model-british-rifles" src="./assets/models/british/colonial_rifle_rack.glb"></a-asset-item>
+      <a-asset-item id="model-british-ship" src="./assets/models/british/colonial_sailing_steamship.glb"></a-asset-item>
+      <a-asset-item id="model-british-fountain" src="./assets/models/british/colonial_stone_fountain.glb"></a-asset-item>
+      <a-asset-item id="model-british-clock" src="./assets/models/british/victorian_clock_tower.glb"></a-asset-item>
+      <a-asset-item id="model-british-kiosk" src="./assets/models/british/victorian_newspaper_kiosk.glb"></a-asset-item>
     </a-assets>
 
     <!-- Camera (Disable A-Frame's built-in controls so 8th Wall SLAM has full control) -->
@@ -978,6 +1109,98 @@
       <!-- ZONE 4: WILDLIFE MEADOW -->
       <a-entity id="theme-meadow" visible="false">
         <!-- <a-gltf-model data-animal="deer" src="#model-sika-deer" position="0 0 -2.6" scale="1 1 1" glb-animator></a-gltf-model> -->
+      </a-entity>
+
+      <!-- ZONE 5: BRITISH COLONIAL TOWN SQUARE (All 9 GLBs arranged as a walkable AR diorama) -->
+      <a-entity id="theme-british" visible="false">
+        <!-- Centerpiece Estate Tropical Gardens & Trimmed Boxwood Lawns -->
+        <a-gltf-model
+          data-animal="british_landscaping"
+          src="#model-british-landscaping"
+          position="0 0 -3.0"
+          scale="0.34 0.34 0.34"
+          glb-animator>
+        </a-gltf-model>
+
+        <!-- Rear Center Backdrop: Towering Victorian Clock Tower -->
+        <a-gltf-model
+          data-animal="british_clock_tower"
+          src="#model-british-clock"
+          position="0 0 -5.0"
+          rotation="0 0 0"
+          scale="0.18 0.18 0.18"
+          glb-animator>
+        </a-gltf-model>
+
+        <!-- Front Center Courtyard: Red & White Stone Water Fountain & Horse Trough -->
+        <a-gltf-model
+          data-animal="british_stone_fountain"
+          src="#model-british-fountain"
+          position="0 0 -1.55"
+          rotation="0 0 0"
+          scale="0.42 0.42 0.42"
+          glb-animator>
+        </a-gltf-model>
+
+        <!-- Left Wing: Covered Market Arcade facing into the Town Square -->
+        <a-gltf-model
+          data-animal="british_market_arcade"
+          src="#model-british-market"
+          position="-2.35 0 -2.85"
+          rotation="0 60 0"
+          scale="0.28 0.28 0.28"
+          glb-animator>
+        </a-gltf-model>
+
+        <!-- Front-Left Corner: Victorian Newspaper Kiosk & Tea Stall -->
+        <a-gltf-model
+          data-animal="british_newspaper_kiosk"
+          src="#model-british-kiosk"
+          position="-1.45 0 -1.45"
+          rotation="0 38 0"
+          scale="0.34 0.34 0.34"
+          glb-animator>
+        </a-gltf-model>
+
+        <!-- Right Wing: Fort Bastion Embrasure & Wicker Gabions -->
+        <a-gltf-model
+          data-animal="british_fort_bastion"
+          src="#model-british-fort"
+          position="2.45 0 -2.9"
+          rotation="0 -58 0"
+          scale="0.28 0.28 0.28"
+          glb-animator>
+        </a-gltf-model>
+
+        <!-- Garrison Armoury Beside Fort: Enfield Rifle Rack & Weaponry -->
+        <a-gltf-model
+          data-animal="british_rifle_rack"
+          src="#model-british-rifles"
+          position="1.42 0 -1.65"
+          rotation="0 -35 0"
+          scale="0.55 0.55 0.55"
+          glb-animator>
+        </a-gltf-model>
+
+        <!-- Front-Right Wharf Edge: East India Cargo & Trade Goods -->
+        <a-gltf-model
+          data-animal="british_cargo_goods"
+          src="#model-british-cargo"
+          position="1.55 0 -0.85"
+          rotation="0 -25 0"
+          scale="0.52 0.52 0.52"
+          glb-animator>
+        </a-gltf-model>
+
+        <!-- Rear-Right Coastal Harbor: Auxiliary Sailing Steamship -->
+        <a-gltf-model
+          data-animal="british_sailing_steamship"
+          src="#model-british-ship"
+          position="2.85 0.16 -4.85"
+          rotation="0 -115 0"
+          scale="0.18 0.18 0.18"
+          glb-animator>
+        </a-gltf-model>
       </a-entity>
 
     </a-entity>

@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>AIROOM - Interactive AR Zoo</title>
+
+  <!-- A-Frame & 8th Wall Extras -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.8thwall.com/web/aframe/8frame-1.5.0.min.js"></script>
+  <script src="https://cdn.8thwall.com/web/xrextras/xrextras.js"></script>
+
+  <!-- Self-Hosted 8th Wall XR Engine Binary with SLAM chunk preloaded -->
+  <script async src="./xr.js" data-preload-chunks="slam"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body { 
+      margin: 0; 
+      overflow: hidden; 
+      font-family: system-ui, -apple-system, sans-serif; 
+      background: #0f172a;
+      color: #f8fafc;
+    }
+
+    /* Custom Branded Loading Screen */
+    #custom-loader {
+      position: fixed;
+      inset: 0;
+      background: #0f172a;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: opacity 0.4s ease;
+    }
+
+    .spinner {
+      width: 46px;
+      height: 46px;
+      border: 4px solid rgba(255, 255, 255, 0.15);
+      border-top-color: #0ea5e9;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .poweredby-img, #poweredByLogo, #loadingContainer {
+      display: none !important;
+    }
+
+    /* Instruction Banner before tapping floor */
+    #hint-banner {
+      position: fixed; 
+      top: 24px; 
+      left: 50%; 
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.85); 
+      color: #fff; 
+      padding: 12px 22px;
+      border-radius: 30px; 
+      font-size: 14px; 
+      font-weight: 500; 
+      z-index: 10;
+      backdrop-filter: blur(8px); 
+      pointer-events: none; 
+      text-align: center;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      white-space: nowrap;
+      transition: background 0.25s ease;
+    }
+
+    #hint-banner.ready {
+      background: rgba(16, 185, 129, 0.92);
+    }
+
+    /* Active Zone Pill Banner (Top-Left after placing) */
+    #zone-badge {
+      position: fixed;
+      top: 24px;
+      left: 16px;
+      z-index: 10;
+      display: none;
+      background: rgba(15, 23, 42, 0.82);
+      color: #f8fafc;
+      padding: 8px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      font-size: 12px;
+      font-weight: 600;
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+      max-width: calc(100vw - 88px);
+    }
+
+    /* Subtle "Tap any animal" Toast Tip */
+    #tap-tip {
+      position: fixed;
+      top: 66px;
+      left: 16px;
+      z-index: 10;
+      display: none;
+      background: rgba(14, 165, 233, 0.88);
+      color: #ffffff;
+      padding: 6px 12px;
+      border-radius: 16px;
+      font-size: 11px;
+      font-weight: 600;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35);
+      transition: opacity 0.4s ease;
+    }
+
+    /* Top-Right Action Buttons */
+    .ar-ctrl-btn {
+      position: fixed; 
+      right: 16px; 
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.78); 
+      color: #fff; 
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 50%; 
+      width: 44px; 
+      height: 44px; 
+      font-size: 18px; 
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+
+    #recenter-btn { top: 24px; }
+    #reposition-btn { top: 78px; display: none; font-size: 16px; }
+    #guide-btn { top: 132px; display: none; font-size: 17px; }
+
+    /* Bottom Theme Switcher Dock */
+    #theme-dock {
+      position: fixed; 
+      bottom: 24px; 
+      left: 50%; 
+      transform: translateX(-50%);
+      display: none; 
+      gap: 6px; 
+      background: rgba(15, 23, 42, 0.88);
+      padding: 6px; 
+      border-radius: 40px; 
+      z-index: 10;
+      backdrop-filter: blur(10px); 
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+      max-width: calc(100vw - 24px);
+      overflow-x: auto;
+    }
+
+    .theme-btn {
+      border: none; 
+      padding: 10px 14px; 
+      border-radius: 30px;
+      font-size: 13px; 
+      font-weight: 600; 
+      cursor: pointer;
+      color: #cbd5e1; 
+      background: transparent; 
+      transition: all 0.25s ease;
+      white-space: nowrap;
+    }
+
+    .theme-btn.active {
+      background: #0ea5e9; 
+      color: #ffffff;
+      box-shadow: 0 2px 10px rgba(14, 165, 233, 0.45);
+    }
+
+    /* ===================================================================== */
+    /* TAP-TO-LEARN INTERACTIVE ANIMAL CARD                                  */
+    /* ===================================================================== */
+    #animal-card {
+      position: fixed;
+      bottom: 88px;
+      left: 50%;
+      transform: translate(-50%, 24px);
+      width: min(360px, calc(100vw - 28px));
+      background: rgba(15, 23, 42, 0.90);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(125, 211, 252, 0.28);
+      border-radius: 22px;
+      padding: 16px 18px;
+      z-index: 20;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease, transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    #animal-card.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translate(-50%, 0);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .card-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-emoji {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: rgba(14, 165, 233, 0.18);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .card-name {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+
+    .card-sci {
+      margin: 2px 0 0;
+      font-size: 11px;
+      font-style: italic;
+      color: #94a3b8;
+    }
+
+    .card-close {
+      background: rgba(255, 255, 255, 0.1);
+      color: #cbd5e1;
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .card-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .meta-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    .card-fact {
+      margin: 0 0 14px;
+      font-size: 13px;
+      line-height: 1.48;
+      color: #e2e8f0;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px 12px;
+      border-radius: 12px;
+      border-left: 3px solid #0ea5e9;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .card-action-btn {
+      flex: 1;
+      border: none;
+      border-radius: 12px;
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    #speak-btn {
+      background: #0ea5e9;
+      color: #ffffff;
+    }
+
+    #next-animal-btn {
+      background: rgba(255, 255, 255, 0.12);
+      color: #f8fafc;
+    }
+
+    /* Visual Tap Ripple Feedback on Screen */
+    .tap-ripple {
+      position: fixed;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #38bdf8;
+      pointer-events: none;
+      z-index: 15;
+      transform: translate(-50%, -50%) scale(0.4);
+      opacity: 0.95;
+      animation: tapRippleAnim 0.45s ease-out forwards;
+    }
+
+    @keyframes tapRippleAnim {
+      to {
+        transform: translate(-50%, -50%) scale(1.7);
+        opacity: 0;
+      }
+    }
+  </style>
+
+  <script>
+    // =========================================================================
+    // 0. ANIMAL KNOWLEDGE BASE (Tap-to-Learn Card Data for All 4 Zoo Zones)
+    // =========================================================================
+    const ANIMAL_DATA = {
+      koi: {
+        zone: 'aquarium',
+        emoji: '🐟',
+        name: 'Nishikigoi (Koi Fish)',
+        scientific: 'Cyprinus rubrofuscus',
+        status: 'Ornamental Breed',
+        statusColor: '#38bdf8',
+        habitat: 'Freshwater Ponds',
+        size: 'Up to 90 cm',
+        fact: 'Koi are living jewels bred in Japan for centuries. They can recognize the people who feed them and some have lived over 100 years!'
+      },
+      turtle: {
+        zone: 'aquarium',
+        emoji: '🐢',
+        name: 'Green Sea Turtle',
+        scientific: 'Chelonia mydas',
+        status: 'Endangered',
+        statusColor: '#f59e0b',
+        habitat: 'Tropical Coral Reefs',
+        size: '1.0 – 1.2 m',
+        fact: 'Green sea turtles can hold their breath for up to 5 hours while resting underwater and navigate thousands of kilometers back to the exact beach where they hatched.'
+      },
+      manta: {
+        zone: 'aquarium',
+        emoji: '🌊',
+        name: 'Spotted Reef Manta Ray',
+        scientific: 'Mobula alfredi',
+        status: 'Vulnerable',
+        statusColor: '#fb923c',
+        habitat: 'Open Ocean & Reefs',
+        size: 'Up to 5.5 m wingspan',
+        fact: 'Manta rays have the largest brain-to-body ratio of any fish! Unlike stingrays, they have no stinger and gently filter-feed on microscopic plankton.'
+      },
+      jellyfish: {
+        zone: 'aquarium',
+        emoji: '🪼',
+        name: 'Glowing Moon Jellyfish',
+        scientific: 'Aurelia aurita',
+        status: 'Least Concern',
+        statusColor: '#10b981',
+        habitat: 'Coastal Waters Worldwide',
+        size: '25 – 40 cm bell',
+        fact: 'Moon jellyfish are 95% water and have no brain, heart, or bones. The four glowing rings inside their translucent bell are their clover-shaped core.'
+      },
+      // Pre-wired data for Zones 2–4 as you add their .GLB models
+      butterflies: {
+        zone: 'aviary',
+        emoji: '🦋',
+        name: 'Japanese Swallowtail',
+        scientific: 'Papilio xuthus',
+        status: 'Least Concern',
+        statusColor: '#10b981',
+        habitat: 'Woodlands & Gardens',
+        size: '9 – 11 cm wingspan',
+        fact: 'Swallowtail butterflies taste with sensors on their feet and see ultraviolet flower patterns invisible to human eyes.'
+      },
+      owl: {
+        zone: 'aviary',
+        emoji: '🦉',
+        name: 'Barn Owl',
+        scientific: 'Tyto alba',
+        status: 'Least Concern',
+        statusColor: '#10b981',
+        habitat: 'Meadows & Woodlands',
+        size: '85 cm wingspan',
+        fact: 'Comb-like edges on a barn owl’s wing feathers break up air turbulence, allowing it to glide in near-total silence.'
+      },
+      deer: {
+        zone: 'meadow',
+        emoji: '🦌',
+        name: 'Nara Sika Deer',
+        scientific: 'Cervus nippon',
+        status: 'Least Concern',
+        statusColor: '#10b981',
+        habitat: 'Temperate Forests',
+        size: '1.1 m shoulder height',
+        fact: 'Sika deer keep their white spots even as adults and are famous in Nara, Japan for politely bowing their heads to visitors.'
+      }
+    };
+
+    let activeZone = 'aquarium';
+    let currentAnimalKey = null;
+
+    function stopSpeech() {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      const speakBtn = document.getElementById('speak-btn');
+      if (speakBtn) speakBtn.textContent = '🔊 Listen';
+    }
+
+    function openAnimalCard(animalKey) {
+      const info = ANIMAL_DATA[animalKey];
+      if (!info) return;
+
+      stopSpeech();
+      currentAnimalKey = animalKey;
+
+      document.getElementById('card-emoji').textContent = info.emoji;
+      document.getElementById('card-name').textContent = info.name;
+      document.getElementById('card-sci').textContent = info.scientific;
+      document.getElementById('card-status-text').textContent = info.status;
+      document.getElementById('card-status-dot').style.background = info.statusColor;
+      document.getElementById('card-habitat').textContent = `🌍 ${info.habitat}`;
+      document.getElementById('card-size').textContent = `📏 ${info.size}`;
+      document.getElementById('card-fact').textContent = info.fact;
+
+      document.getElementById('animal-card').classList.add('open');
+
+      // Hide the initial tip once the user discovers tapping
+      const tip = document.getElementById('tap-tip');
+      if (tip) tip.style.display = 'none';
+    }
+
+    function closeAnimalCard() {
+      stopSpeech();
+      currentAnimalKey = null;
+      document.getElementById('animal-card').classList.remove('open');
+    }
+
+    function speakCurrentAnimal() {
+      if (!currentAnimalKey || !('speechSynthesis' in window)) return;
+      const info = ANIMAL_DATA[currentAnimalKey];
+      const speakBtn = document.getElementById('speak-btn');
+
+      if (window.speechSynthesis.speaking) {
+        stopSpeech();
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(`${info.name}. ${info.fact}`);
+      utterance.rate = 0.98;
+      utterance.onend = () => {
+        if (speakBtn) speakBtn.textContent = '🔊 Listen';
+      };
+      speakBtn.textContent = '⏹ Stop';
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function openNextAnimalInZone() {
+      const zoneAnimals = Object.keys(ANIMAL_DATA).filter(
+        (key) => ANIMAL_DATA[key].zone === activeZone
+      );
+      if (zoneAnimals.length === 0) return;
+
+      const idx = zoneAnimals.indexOf(currentAnimalKey);
+      const nextKey = zoneAnimals[(idx + 1) % zoneAnimals.length];
+      openAnimalCard(nextKey);
+    }
+
+    function spawnTapRipple(x, y) {
+      const el = document.createElement('div');
+      el.className = 'tap-ripple';
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 460);
+    }
+
+    // =========================================================================
+    // 1. GLB ANIMATION PLAYER COMPONENT (Plays baked AnimationClips in .GLB)
+    // =========================================================================
+    AFRAME.registerComponent('glb-animator', {
+      schema: {
+        speed: { type: 'number', default: 1.0 }
+      },
+      init: function () {
+        this.mixer = null;
+
+        this.startAnimations = (model) => {
+          if (!model) return;
+
+          // Prevent animated skinned meshes from disappearing near screen edges
+          model.traverse((obj) => {
+            if (obj.isMesh || obj.isSkinnedMesh) {
+              obj.frustumCulled = false;
+            }
+          });
+
+          if (model.animations && model.animations.length > 0) {
+            this.mixer = new THREE.AnimationMixer(model);
+            this.mixer.timeScale = this.data.speed;
+            model.animations.forEach((clip) => {
+              const action = this.mixer.clipAction(clip);
+              action.setLoop(THREE.LoopRepeat, Infinity);
+              action.play();
+            });
+          }
+        };
+
+        this.el.addEventListener('model-loaded', (e) => {
+          this.startAnimations(e.detail.model);
+        });
+
+        const existingMesh = this.el.getObject3D('mesh');
+        if (existingMesh) {
+          this.startAnimations(existingMesh);
+        }
+      },
+      tick: function (time, delta) {
+        if (this.mixer) {
+          this.mixer.update(Math.min(delta, 50) / 1000);
+        }
+      }
+    });
+
+    // =========================================================================
+    // 2. FLOOR RETICLE, LOCKED ROOM ANCHOR & 3D TAP-TO-LEARN MANAGER
+    // =========================================================================
+    AFRAME.registerComponent('room-anchor-manager', {
+      init: function () {
+        this.scene = this.el;
+        this.cameraEl = document.querySelector('a-camera');
+        this.roomRoot = document.getElementById('room-origin');
+        this.reticle = document.getElementById('placement-reticle');
+        this.hintBanner = document.getElementById('hint-banner');
+        this.zoneBadge = document.getElementById('zone-badge');
+        this.tapTip = document.getElementById('tap-tip');
+        this.themeDock = document.getElementById('theme-dock');
+        this.repositionBtn = document.getElementById('reposition-btn');
+        this.guideBtn = document.getElementById('guide-btn');
+        this.customLoader = document.getElementById('custom-loader');
+
+        this.isAnchored = false;
+        this.realityReady = false;
+        this.hasValidFloorHit = false;
+
+        // Reusable Three.js math objects
+        this.raycaster = new THREE.Raycaster();
+        this.centerNDC = new THREE.Vector2(0, 0);
+        this.tapNDC = new THREE.Vector2();
+        this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        this.hitPoint = new THREE.Vector3();
+        this.camPos = new THREE.Vector3();
+        this.camDir = new THREE.Vector3();
+        this.tempVec = new THREE.Vector3();
+
+        // 1. Hide custom loading screen once 8th Wall SLAM camera is ready
+        this.scene.addEventListener('realityready', () => {
+          this.realityReady = true;
+          if (this.customLoader) {
+            this.customLoader.style.opacity = '0';
+            setTimeout(() => this.customLoader.remove(), 400);
+          }
+        });
+
+        // 2. Unified Tap Handler: Places the Zoo first, then enables Tap-to-Learn on Animals!
+        const handleScreenTap = (e) => {
+          if (e.target.closest('button, #theme-dock, #animal-card')) return;
+
+          const cameraObj = this.cameraEl.getObject3D('camera');
+          if (!cameraObj) return;
+
+          // PHASE A: Before anchor placement -> lock the AR Zoo onto the floor
+          if (!this.isAnchored) {
+            if (!this.hasValidFloorHit) return;
+
+            cameraObj.getWorldDirection(this.camDir);
+            const yawDeg = THREE.MathUtils.radToDeg(Math.atan2(-this.camDir.x, -this.camDir.z));
+
+            this.roomRoot.object3D.matrixAutoUpdate = true;
+            this.roomRoot.setAttribute('position', `${this.hitPoint.x.toFixed(3)} 0 ${this.hitPoint.z.toFixed(3)}`);
+            this.roomRoot.setAttribute('rotation', `0 ${yawDeg.toFixed(2)} 0`);
+            this.roomRoot.object3D.updateMatrix();
+            this.roomRoot.object3D.matrixAutoUpdate = false;
+
+            this.roomRoot.setAttribute('visible', 'true');
+            this.reticle.setAttribute('visible', 'false');
+            this.isAnchored = true;
+
+            this.hintBanner.style.display = 'none';
+            this.zoneBadge.style.display = 'block';
+            this.tapTip.style.display = 'block';
+            this.themeDock.style.display = 'flex';
+            this.repositionBtn.style.display = 'flex';
+            this.guideBtn.style.display = 'flex';
+            return;
+          }
+
+          // PHASE B: After placement -> Tap any 3D animal to open its learning card
+          this.detectTappedAnimal(e.clientX, e.clientY, cameraObj);
+        };
+
+        window.addEventListener('click', handleScreenTap);
+
+        // 3. Recenter AR tracking
+        document.getElementById('recenter-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.scene.emit('recenter');
+        });
+
+        // 4. Reposition button: unlocks the room so you can move it
+        this.repositionBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeAnimalCard();
+          this.isAnchored = false;
+          this.roomRoot.object3D.matrixAutoUpdate = true;
+          this.roomRoot.setAttribute('visible', 'false');
+          this.zoneBadge.style.display = 'none';
+          this.tapTip.style.display = 'none';
+          this.themeDock.style.display = 'none';
+          this.repositionBtn.style.display = 'none';
+          this.guideBtn.style.display = 'none';
+          this.hintBanner.style.display = 'block';
+          this.hintBanner.textContent = 'Point down at the floor to place';
+          this.hintBanner.classList.remove('ready');
+        });
+
+        // 5. Animal Guide button: opens/cycles the learning cards for the current zone
+        this.guideBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openNextAnimalInZone();
+        });
+      },
+
+      // Hybrid 3D Raycast + Moving-Root Screen-Space Hit Detection (Super reliable on animated GLBs!)
+      detectTappedAnimal: function (clientX, clientY, cameraObj) {
+        const activeZoneEl = document.getElementById(`theme-${activeZone}`);
+        if (!activeZoneEl) return;
+
+        this.tapNDC.x = (clientX / window.innerWidth) * 2 - 1;
+        this.tapNDC.y = -(clientY / window.innerHeight) * 2 + 1;
+
+        const animalEls = Array.from(activeZoneEl.querySelectorAll('[data-animal]'));
+        if (animalEls.length === 0) return;
+
+        // 1. Direct Three.js 3D Raycast against visible animal meshes
+        this.raycaster.setFromCamera(this.tapNDC, cameraObj);
+        const meshes = [];
+        animalEls.forEach((el) => {
+          const animalKey = el.getAttribute('data-animal');
+          el.object3D.traverse((obj) => {
+            if (obj.isMesh || obj.isSkinnedMesh) {
+              obj.userData.animalKey = animalKey;
+              meshes.push(obj);
+            }
+          });
+        });
+
+        const hits = this.raycaster.intersectObjects(meshes, false);
+        if (hits.length > 0 && hits[0].object.userData.animalKey) {
+          spawnTapRipple(clientX, clientY);
+          openAnimalCard(hits[0].object.userData.animalKey);
+          return;
+        }
+
+        // 2. Generous Screen-Space Proximity Fallback for fast-moving / skinned animals
+        let bestAnimal = null;
+        let bestScore = 0.22; // Generous mobile tap radius in NDC (~11% of screen)
+
+        animalEls.forEach((el) => {
+          const animalKey = el.getAttribute('data-animal');
+          const trackNodes = [];
+          el.object3D.traverse((obj) => {
+            if (obj.name && obj.name.endsWith('_Root')) {
+              trackNodes.push(obj);
+            }
+          });
+          if (trackNodes.length === 0) trackNodes.push(el.object3D);
+
+          trackNodes.forEach((node) => {
+            node.getWorldPosition(this.tempVec);
+            this.tempVec.project(cameraObj);
+            // Ignore objects behind the camera
+            if (this.tempVec.z > 1) return;
+
+            const dist2D = Math.hypot(this.tempVec.x - this.tapNDC.x, this.tempVec.y - this.tapNDC.y);
+            if (dist2D < bestScore) {
+              bestScore = dist2D;
+              bestAnimal = animalKey;
+            }
+          });
+        });
+
+        if (bestAnimal) {
+          spawnTapRipple(clientX, clientY);
+          openAnimalCard(bestAnimal);
+        } else {
+          // Tapping empty space dismisses any open card
+          closeAnimalCard();
+        }
+      },
+
+      // Continuously project camera center onto y = 0 SLAM floor ONLY before placement
+      tick: function () {
+        if (this.isAnchored || !this.realityReady) return;
+
+        const cameraObj = this.cameraEl.getObject3D('camera');
+        if (!cameraObj) return;
+
+        this.raycaster.setFromCamera(this.centerNDC, cameraObj);
+        const intersected = this.raycaster.ray.intersectPlane(this.groundPlane, this.hitPoint);
+
+        if (intersected) {
+          cameraObj.getWorldPosition(this.camPos);
+          const dist = this.camPos.distanceTo(this.hitPoint);
+
+          if (dist >= 0.8 && dist <= 8.0) {
+            this.reticle.object3D.position.set(this.hitPoint.x, 0.01, this.hitPoint.z);
+            this.reticle.setAttribute('visible', 'true');
+
+            if (!this.hasValidFloorHit) {
+              this.hasValidFloorHit = true;
+              this.hintBanner.textContent = 'Floor locked! Tap anywhere to place';
+              this.hintBanner.classList.add('ready');
+            }
+            return;
+          }
+        }
+
+        if (this.hasValidFloorHit) {
+          this.hasValidFloorHit = false;
+          this.reticle.setAttribute('visible', 'false');
+          this.hintBanner.textContent = 'Point your phone down at the floor';
+          this.hintBanner.classList.remove('ready');
+        }
+      }
+    });
+
+    const ZONE_LABELS = {
+      aquarium: '🌊 Zone 1: Aquarium & Ocean Dome (Look up!)',
+      aviary:   '🦋 Zone 2: Aviary & Sky Sanctuary',
+      reptiles: '🦎 Zone 3: Rainforest & Reptile House',
+      meadow:   '🦌 Zone 4: Wildlife Meadow'
+    };
+
+    // Global function to switch AR Zoo habitats anywhere in the room instantly
+    function switchTheme(zoneName, btnElement) {
+      activeZone = zoneName;
+      closeAnimalCard();
+
+      const zones = ['aquarium', 'aviary', 'reptiles', 'meadow'];
+      zones.forEach(z => {
+        const container = document.getElementById(`theme-${z}`);
+        if (container) {
+          container.setAttribute('visible', z === zoneName);
+        }
+      });
+
+      const zoneBadge = document.getElementById('zone-badge');
+      if (zoneBadge && ZONE_LABELS[zoneName]) {
+        zoneBadge.textContent = ZONE_LABELS[zoneName];
+      }
+
+      document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
+      btnElement.classList.add('active');
+    }
+  </script>
+</head>
+
+<body>
+  <!-- Custom Loading Screen -->
+  <div id="custom-loader">
+    <div class="spinner"></div>
+    <p style="margin-top: 16px; font-size: 14px; font-weight: 500; letter-spacing: 0.5px;">Initializing AR Zoo...</p>
+  </div>
+
+  <!-- UI Overlays -->
+  <div id="hint-banner">Point your phone down at the floor</div>
+  <div id="zone-badge">🌊 Zone 1: Aquarium & Ocean Dome (Look up!)</div>
+  <div id="tap-tip">👆 Tap any swimming animal to learn!</div>
+
+  <button id="recenter-btn" class="ar-ctrl-btn" title="Recenter AR">⟲</button>
+  <button id="reposition-btn" class="ar-ctrl-btn" title="Move Zoo">📍</button>
+  <button id="guide-btn" class="ar-ctrl-btn" title="Animal Fact Cards">📖</button>
+
+  <!-- Interactive Tap-to-Learn Animal Card -->
+  <div id="animal-card" role="dialog" aria-label="Animal Information Card">
+    <div class="card-header">
+      <div class="card-title-row">
+        <div id="card-emoji" class="card-emoji">🐢</div>
+        <div>
+          <h2 id="card-name" class="card-name">Green Sea Turtle</h2>
+          <p id="card-sci" class="card-sci">Chelonia mydas</p>
+        </div>
+      </div>
+      <button class="card-close" onclick="closeAnimalCard()" aria-label="Close">✕</button>
+    </div>
+
+    <div class="card-meta-row">
+      <span class="meta-pill status-pill">
+        <span id="card-status-dot" class="status-dot"></span>
+        <span id="card-status-text">Endangered</span>
+      </span>
+      <span id="card-habitat" class="meta-pill">🌍 Tropical Reefs</span>
+      <span id="card-size" class="meta-pill">📏 1.2 m</span>
+    </div>
+
+    <p id="card-fact" class="card-fact"></p>
+
+    <div class="card-actions">
+      <button id="speak-btn" class="card-action-btn" onclick="speakCurrentAnimal()">🔊 Listen</button>
+      <button id="next-animal-btn" class="card-action-btn" onclick="openNextAnimalInZone()">Next Animal →</button>
+    </div>
+  </div>
+
+  <!-- Bottom Habitat Switcher Dock -->
+  <div id="theme-dock">
+    <button class="theme-btn active" onclick="switchTheme('aquarium', this)">🌊 Aquarium</button>
+    <button class="theme-btn" onclick="switchTheme('aviary', this)">🦋 Aviary</button>
+    <button class="theme-btn" onclick="switchTheme('reptiles', this)">🦎 Reptiles</button>
+    <button class="theme-btn" onclick="switchTheme('meadow', this)">🦌 Meadow</button>
+  </div>
+
+  <!-- 8th Wall World Effects Scene -->
+  <a-scene
+    room-anchor-manager
+    xrextras-gesture-detector
+    xrextras-almost-there
+    xrextras-runtime-error
+    renderer="colorManagement: true"
+    xrweb="allowedDevices: any">
+
+    <!-- =================================================================== -->
+    <!-- PRELOADED 3D AR ZOO ASSETS (Matching assets/models/aquarium/)       -->
+    <!-- =================================================================== -->
+    <a-assets timeout="25000">
+      <!-- Zone 1: Aquarium & Ocean Dome -->
+      <a-asset-item id="model-koi-fish" src="./assets/models/aquarium/koi-fish-group.glb"></a-asset-item>
+      <a-asset-item id="model-sea-turtle" src="./assets/models/aquarium/green-sea-turtle.glb"></a-asset-item>
+      <a-asset-item id="model-manta-ray" src="./assets/models/aquarium/spotted-manta-ray.glb"></a-asset-item>
+      <a-asset-item id="model-jellyfish" src="./assets/models/aquarium/moon-jellyfish-group.glb"></a-asset-item>
+
+      <!-- Zone 2: Aviary (Uncomment as you add models to assets/models/aviary/) -->
+      <!-- <a-asset-item id="model-butterflies" src="./assets/models/aviary/butterfly-swarm.glb"></a-asset-item> -->
+      <!-- <a-asset-item id="model-barn-owl" src="./assets/models/aviary/barn-owl.glb"></a-asset-item> -->
+
+      <!-- Zone 3: Reptiles (Uncomment as you add models to assets/models/reptiles/) -->
+      <!-- <a-asset-item id="model-tree-boa" src="./assets/models/reptiles/emerald-tree-boa.glb"></a-asset-item> -->
+      <!-- <a-asset-item id="model-tree-frog" src="./assets/models/reptiles/japanese-tree-frog.glb"></a-asset-item> -->
+
+      <!-- Zone 4: Wildlife Meadow (Uncomment as you add models to assets/models/meadow/) -->
+      <!-- <a-asset-item id="model-sika-deer" src="./assets/models/meadow/nara-sika-deer.glb"></a-asset-item> -->
+    </a-assets>
+
+    <!-- Camera (Disable A-Frame's built-in controls so 8th Wall SLAM has full control) -->
+    <a-camera position="0 1.6 0" look-controls="enabled: false" wasd-controls="enabled: false"></a-camera>
+
+    <!-- Live Floor Placement Reticle -->
+    <a-entity id="placement-reticle" visible="false">
+      <a-ring rotation="-90 0 0" radius-inner="0.22" radius-outer="0.28" color="#10b981" material="shader: flat; opacity: 0.9"></a-ring>
+      <a-circle rotation="-90 0 0" radius="0.06" color="#ffffff" material="shader: flat; opacity: 0.9"></a-circle>
+    </a-entity>
+
+    <!-- Ambient & Directional Lighting -->
+    <a-light type="ambient" intensity="0.9"></a-light>
+    <a-light type="directional" position="2 5 3" intensity="1.0"></a-light>
+
+    <!-- =================================================================== -->
+    <!-- ROOM ORIGIN (0, 0, 0) - Locked permanently after tapping the floor  -->
+    <!-- =================================================================== -->
+    <a-entity id="room-origin" visible="false">
+
+      <!-- ZONE 1: AQUARIUM & OCEAN DOME (Active by default — Multi-level 360° layout) -->
+      <a-entity id="theme-aquarium" visible="true">
+        <!-- Floor Level: Swimming Koi Fish Pond -->
+        <a-gltf-model
+          data-animal="koi"
+          src="#model-koi-fish"
+          position="0 0.15 -2.2"
+          scale="1.2 1.2 1.2"
+          glb-animator="speed: 1.0">
+        </a-gltf-model>
+
+        <!-- Eye Level: Green Sea Turtle gliding in a wide calm loop -->
+        <a-gltf-model
+          data-animal="turtle"
+          src="#model-sea-turtle"
+          position="0 1.10 -2.3"
+          scale="1.0 1.0 1.0"
+          glb-animator="speed: 1.0">
+        </a-gltf-model>
+
+        <!-- Overhead Ceiling Level: Spotted Manta Ray soaring above -->
+        <a-gltf-model
+          data-animal="manta"
+          src="#model-manta-ray"
+          position="0 2.05 -2.4"
+          scale="1.15 1.15 1.15"
+          glb-animator="speed: 0.9">
+        </a-gltf-model>
+
+        <!-- Left Corner: Glowing Moon Jellyfish Group -->
+        <a-gltf-model
+          data-animal="jellyfish"
+          src="#model-jellyfish"
+          position="-1.45 0.95 -1.8"
+          scale="1.0 1.0 1.0"
+          glb-animator="speed: 1.0">
+        </a-gltf-model>
+
+        <!-- Right-Rear Corner: Second Moon Jellyfish Cluster -->
+        <a-gltf-model
+          data-animal="jellyfish"
+          src="#model-jellyfish"
+          position="1.55 1.10 -1.4"
+          rotation="0 140 0"
+          scale="0.85 0.85 0.85"
+          glb-animator="speed: 0.85">
+        </a-gltf-model>
+      </a-entity>
+
+      <!-- ZONE 2: AVIARY & SKY SANCTUARY -->
+      <a-entity id="theme-aviary" visible="false">
+        <!-- <a-gltf-model data-animal="butterflies" src="#model-butterflies" position="0 1.4 -2.0" scale="1 1 1" glb-animator></a-gltf-model> -->
+        <!-- <a-gltf-model data-animal="owl" src="#model-barn-owl" position="0 2.1 -2.4" scale="1 1 1" glb-animator></a-gltf-model> -->
+      </a-entity>
+
+      <!-- ZONE 3: RAINFOREST & REPTILE HOUSE -->
+      <a-entity id="theme-reptiles" visible="false">
+        <!-- <a-gltf-model data-animal="boa" src="#model-tree-boa" position="0 0.02 -2.0" scale="1 1 1" glb-animator></a-gltf-model> -->
+      </a-entity>
+
+      <!-- ZONE 4: WILDLIFE MEADOW -->
+      <a-entity id="theme-meadow" visible="false">
+        <!-- <a-gltf-model data-animal="deer" src="#model-sika-deer" position="0 0 -2.6" scale="1 1 1" glb-animator></a-gltf-model> -->
+      </a-entity>
+
+    </a-entity>
+  </a-scene>
+</body>
+</html>
